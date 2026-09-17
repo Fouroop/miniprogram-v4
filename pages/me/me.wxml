@@ -1,0 +1,74 @@
+<view class="page">
+  <view class="page-title">我的</view>
+  <view class="page-sub">账号与学习数据</view>
+
+  <view class="card profile">
+    <image wx:if="{{user.avatar}}" class="avatar avatar-img" src="{{user.avatar}}" mode="aspectFill" />
+    <view wx:else class="avatar">{{user.nickname ? user.nickname[0] : '学'}}</view>
+    <view class="profile-body">
+      <view class="profile-name">{{user.nickname || '同学'}}</view>
+      <view class="profile-meta">
+        {{user.grade || '未设置年级'}} ·
+        <text class="{{user.is_vip ? 'vip-on' : 'vip-off'}}">{{user.is_vip ? 'VIP 会员' : '普通用户'}}</text>
+      </view>
+    </view>
+    <view class="profile-edit" bindtap="openEdit">编辑</view>
+  </view>
+
+  <!-- 语音包：实时余量 -->
+  <view class="voice-balance-card">
+    <view class="vbc-head">
+      <view class="vbc-title">语音包</view>
+      <view class="vbc-tip">按分钟扣减，AI 语音通话讲题</view>
+    </view>
+    <view class="vbc-num">{{voiceBal.minutes}}<text class="vbc-unit">分钟</text></view>
+    <view class="vbc-sub" wx:if="{{voiceBal.status === 'active'}}">有效期至 {{voiceBal.expireText}}</view>
+    <view class="vbc-sub warn" wx:elif="{{voiceBal.status === 'expired'}}">已过期，请续购语音包</view>
+    <view class="vbc-sub" wx:else>暂无语音包，开通后可用 AI 语音通话讲题</view>
+  </view>
+
+  <!-- 语音包套餐 -->
+  <view class="section-title" wx:if="{{plans.length}}">开通语音包</view>
+  <view class="plan-card {{item.hot ? 'hot' : ''}}" wx:for="{{plans}}" wx:key="plan" data-key="{{item.plan}}" bindtap="buy">
+    <view class="hot-tag" wx:if="{{item.hot}}">推荐</view>
+    <view class="pc-row">
+      <view class="pc-name">{{item.name}}</view>
+      <view class="pc-price">¥{{item.price}}<text class="pc-unit"> / {{item.duration_days >= 365 ? '年' : (item.duration_days >= 30 ? '月' : '次')}}</text></view>
+    </view>
+    <view class="pc-note">{{item.desc_text}} · 含 {{item.minutes}} 分钟 · {{item.duration_days}} 天有效</view>
+  </view>
+
+  <!-- 设置 -->
+  <view class="card">
+    <view class="section-title">设置</view>
+    <view class="set-row" bindtap="clearLocalData">
+      <view class="set-icon red">清</view>
+      <view class="set-label">清除本地缓存</view>
+      <view class="set-arrow">›</view>
+    </view>
+    <view class="set-row" bindtap="showAbout">
+      <view class="set-icon amber">于</view>
+      <view class="set-label">关于</view>
+      <view class="set-arrow">›</view>
+    </view>
+  </view>
+
+  <button class="btn btn-ghost btn-block" style="margin-top:30rpx" bindtap="logout">退出登录</button>
+  <view class="bottom-space"></view>
+
+  <!-- 编辑资料弹层 -->
+  <view class="edit-mask" wx:if="{{showEdit}}" bindtap="cancelEdit">
+    <view class="edit-card" catchtap="noop">
+      <view class="edit-title">编辑资料</view>
+      <button class="edit-avatar-btn" open-type="chooseAvatar" bindchooseavatar="onEditAvatar">
+        <image wx:if="{{editAvatarPath}}" class="edit-avatar-img" src="{{editAvatarPath}}" mode="aspectFill" />
+        <text wx:else>点选头像</text>
+      </button>
+      <input class="edit-nick-input" type="nickname" placeholder="输入昵称" value="{{editNickname}}" bindinput="onEditNick" />
+      <view class="edit-btns">
+        <button class="btn btn-ghost btn-half" bindtap="cancelEdit">取消</button>
+        <button class="btn btn-primary btn-half" loading="{{savingProfile}}" bindtap="saveProfile">保 存</button>
+      </view>
+    </view>
+  </view>
+</view>

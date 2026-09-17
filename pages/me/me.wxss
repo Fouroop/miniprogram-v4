@@ -1,0 +1,148 @@
+.page { padding: 30rpx; }
+.profile { display: flex; align-items: center; gap: 30rpx; margin-bottom: 24rpx; }
+.avatar {
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 50%;
+  background: #3B6EA5;
+  color: #fff;
+  font-size: 44rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.avatar-img { overflow: hidden; }
+.profile-name { font-size: 34rpx; font-weight: 700; }
+.profile-body { flex: 1; min-width: 0; }
+.profile-edit {
+  font-size: 24rpx;
+  color: #3B6EA5;
+  border: 1.5rpx solid #3B6EA5;
+  border-radius: 24rpx;
+  padding: 8rpx 26rpx;
+  flex-shrink: 0;
+}
+.profile-meta { font-size: 24rpx; color: #6E675A; margin-top: 6rpx; }
+.vip-on { color: #C98A2D; font-weight: 700; }
+.vip-off { color: #A69C89; }
+
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-bottom: 2rpx dashed #E2D8C2;
+}
+.set-row:last-child { border-bottom: none; }
+.set-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+.set-icon.red { background: #FDF0EE; color: #D64541; }
+.set-icon.blue { background: #E3EDF7; color: #3B6EA5; }
+.set-icon.amber { background: #F6ECD9; color: #C98A2D; }
+.set-label { flex: 1; font-size: 28rpx; font-weight: 600; }
+.set-arrow { color: #A69C89; font-size: 40rpx; }
+.bottom-space { height: 170rpx; }
+
+/* 编辑资料弹层 */
+.edit-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(40, 32, 18, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.edit-card {
+  width: 560rpx;
+  background: #FFFDF8;
+  border-radius: 28rpx;
+  padding: 40rpx 40rpx 36rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.edit-title { font-size: 32rpx; font-weight: 700; margin-bottom: 30rpx; }
+.edit-avatar-btn {
+  width: 140rpx;
+  height: 140rpx;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #fff;
+  border: 2rpx dashed #BFD6BB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #8BA486;
+  margin-bottom: 28rpx;
+}
+.edit-avatar-img { width: 140rpx; height: 140rpx; }
+.edit-nick-input {
+  width: 100%;
+  padding: 26rpx 24rpx;
+  border: 1.5rpx solid #CFC2A6;
+  border-radius: 18rpx;
+  background: #F6F0E4;
+  font-size: 30rpx;
+  box-sizing: border-box;
+  margin-bottom: 32rpx;
+}
+.edit-btns { display: flex; gap: 20rpx; width: 100%; }
+.btn-half { flex: 1; }
+
+/* 语音包余量卡片 */
+.voice-balance-card {
+  background: linear-gradient(135deg, #8B1E1A, #B23A35);
+  border-radius: 28rpx;
+  padding: 36rpx;
+  color: #FFF8EC;
+  margin-bottom: 28rpx;
+}
+.vbc-head { display: flex; align-items: center; justify-content: space-between; }
+.vbc-title { font-size: 26rpx; font-weight: 700; opacity: .85; }
+.vbc-tip { font-size: 22rpx; opacity: .6; }
+.vbc-num { font-size: 88rpx; font-weight: 800; line-height: 1; margin: 16rpx 0 8rpx; }
+.vbc-unit { font-size: 28rpx; font-weight: 600; margin-left: 10rpx; }
+.vbc-sub { font-size: 22rpx; opacity: .8; }
+.vbc-sub.warn { color: #FFD9A0; font-weight: 700; }
+
+/* 语音包套餐 */
+.section-title { font-size: 26rpx; font-weight: 700; color: #6E675A; margin: 28rpx 0 16rpx; }
+.plan-card {
+  position: relative;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 18rpx;
+}
+.plan-card.hot { border-color: #D64541; }
+.hot-tag {
+  position: absolute;
+  top: -12rpx;
+  right: 24rpx;
+  background: #D64541;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 4rpx 18rpx;
+  border-radius: 12rpx;
+}
+.pc-row { display: flex; align-items: baseline; justify-content: space-between; }
+.pc-name { font-size: 28rpx; font-weight: 700; }
+.pc-price { font-size: 48rpx; font-weight: 800; }
+.pc-unit { font-size: 24rpx; color: #6E675A; font-weight: 500; }
+.pc-note { font-size: 22rpx; color: #6E675A; margin-top: 10rpx; }

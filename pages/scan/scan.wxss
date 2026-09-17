@@ -1,0 +1,94 @@
+.page { padding: 30rpx; }
+.upload-zone {
+  border: 4rpx dashed #CFC2A6;
+  border-radius: 28rpx;
+  background: #FFFDF8;
+  padding: 100rpx 40rpx;
+  text-align: center;
+}
+.up-icon { font-size: 72rpx; margin-bottom: 20rpx; }
+.up-main { font-size: 30rpx; font-weight: 700; margin-bottom: 8rpx; }
+.up-sub { font-size: 24rpx; color: #6E675A; }
+
+.preview {
+  width: 100%;
+  border-radius: 20rpx;
+  border: 3rpx solid #CFC2A6;
+}
+.scan-line {
+  position: relative;
+  height: 80rpx;
+  margin-top: 24rpx;
+  border-radius: 20rpx;
+  background: #E3EDF7;
+  color: #3B6EA5;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.scan-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6rpx;
+  background: #3B6EA5;
+  animation: scanMove 1.4s linear infinite;
+}
+@keyframes scanMove {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+.field { margin-bottom: 24rpx; }
+.field-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #6E675A;
+  margin-bottom: 10rpx;
+}
+.field-textarea, .field-input {
+  width: 100%;
+  padding: 18rpx 22rpx;
+  border: 1.5rpx solid #CFC2A6;
+  border-radius: 16rpx;
+  background: #F6F0E4;
+  font-size: 26rpx;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+.field-picker {
+  padding: 18rpx 22rpx;
+  border: 1.5rpx solid #CFC2A6;
+  border-radius: 16rpx;
+  background: #F6F0E4;
+  font-size: 26rpx;
+}
+.field-row { display: flex; gap: 18rpx; }
+.field.half { flex: 1; min-width: 0; }
+
+/* 多题卡片 */
+.q-card {
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 20rpx;
+  padding: 22rpx;
+  margin-bottom: 22rpx;
+  background: #FFFDF8;
+}
+.q-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+.q-no { font-size: 28rpx; font-weight: 800; color: #2B2A26; }
+.q-del {
+  font-size: 24rpx;
+  color: #D64541;
+  padding: 6rpx 18rpx;
+  border: 1.5rpx solid #F0C8C4;
+  border-radius: 999rpx;
+}

@@ -1,0 +1,73 @@
+<view class="page">
+  <!-- 未选图：上传区 -->
+  <view class="card" wx:if="{{!imagePath}}">
+    <view class="upload-zone" bindtap="chooseImage">
+      <view class="up-icon">📷</view>
+      <view class="up-main">点击拍照或从相册选择</view>
+      <view class="up-sub">一张图可识别多道题，自动读取学生手写答案</view>
+    </view>
+  </view>
+
+  <!-- 已选图：预览 + 识别 -->
+  <block wx:if="{{imagePath}}">
+    <view class="card">
+      <image class="preview" src="{{imagePath}}" mode="widthFix" />
+      <view class="scan-line" wx:if="{{recognizing}}">
+        <view class="scan-bar"></view>
+        AI 正在识别题目与手写答案…
+      </view>
+      <button class="btn btn-primary btn-block" style="margin-top:24rpx" wx:if="{{!recognizing && !questions.length}}" bindtap="startOcr">开始识别</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:16rpx" wx:if="{{!recognizing}}" bindtap="reset">重新选择图片</button>
+    </view>
+
+    <!-- 多题识别结果（每题可编辑核对） -->
+    <view class="card" wx:if="{{questions.length}}">
+      <view class="section-title">识别到 {{questions.length}} 道题（可编辑核对）</view>
+
+      <view class="q-card" wx:for="{{questions}}" wx:key="index">
+        <view class="q-head">
+          <text class="q-no">第 {{index + 1}} 题</text>
+          <view class="q-del" data-i="{{index}}" bindtap="removeQuestion">删除</view>
+        </view>
+
+        <view class="field">
+          <text class="field-label">题目内容</text>
+          <textarea class="field-textarea" value="{{item.stem}}" data-field="stem" data-i="{{index}}" bindinput="onField" auto-height placeholder="题目正文（含选项）" />
+        </view>
+
+        <view class="field">
+          <text class="field-label">学生手写答案</text>
+          <input class="field-input" value="{{item.wrong_answer}}" data-field="wrong_answer" data-i="{{index}}" bindinput="onField" placeholder="识别到的学生作答" />
+        </view>
+
+        <view class="field">
+          <text class="field-label">正确答案</text>
+          <input class="field-input" value="{{item.answer}}" data-field="answer" data-i="{{index}}" bindinput="onField" placeholder="标准答案（可补填）" />
+        </view>
+
+        <view class="field-row">
+          <view class="field half">
+            <text class="field-label">科目</text>
+            <picker range="{{subjects}}" data-i="{{index}}" bindchange="onSubjectChange">
+              <view class="field-picker">{{item.subject}} ▾</view>
+            </picker>
+          </view>
+          <view class="field half">
+            <text class="field-label">知识点</text>
+            <input class="field-input" value="{{item.tag}}" data-field="tag" data-i="{{index}}" bindinput="onField" placeholder="如：一元二次方程" />
+          </view>
+        </view>
+
+        <view class="field">
+          <text class="field-label">错因</text>
+          <picker range="{{reasons}}" data-i="{{index}}" bindchange="onReasonChange">
+            <view class="field-picker">{{item.reason || '选择错因…'}} ▾</view>
+          </picker>
+        </view>
+      </view>
+
+      <button class="btn btn-ghost btn-block" style="margin-top:16rpx" bindtap="addQuestion">+ 手动添加一道题</button>
+      <button class="btn btn-primary btn-block" style="margin-top:20rpx" bindtap="save">全部保存到错题本</button>
+    </view>
+  </block>
+</view>

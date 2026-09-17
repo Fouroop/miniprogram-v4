@@ -1,0 +1,40 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/home/home",
+    "pages/scan/scan",
+    "pages/knowledge/knowledge",
+    "pages/mistakes/mistakes",
+    "pages/mistake-detail/mistake-detail",
+    "pages/chat/chat",
+    "pages/vip/vip",
+    "pages/me/me"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F6F0E4",
+    "navigationBarTitleText": "错题AI辅导",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F6F0E4",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#A69C89",
+    "selectedColor": "#D64541",
+    "backgroundColor": "#FFFDF8",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "首页" },
+      { "pagePath": "pages/knowledge/knowledge", "text": "知识地图" },
+      { "pagePath": "pages/mistakes/mistakes", "text": "错题本" },
+      { "pagePath": "pages/me/me", "text": "我的" }
+    ]
+  },
+  "permission": {
+    "scope.record": {
+      "desc": "用于 AI 语音通话辅导，仅在通话时录音"
+    }
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

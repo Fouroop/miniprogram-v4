@@ -1,0 +1,15 @@
+{
+  "name": "voice-proxy",
+  "version": "1.0.0",
+  "description": "火山引擎豆包语音端到端实时语音代理（WebSocket 透传 + 鉴权注入）",
+  "main": "voice-proxy.js",
+  "scripts": {
+    "start": "node voice-proxy.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

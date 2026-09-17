@@ -1,0 +1,150 @@
+/* app.wxss —— 设计Token：作业纸 + 红笔批注 */
+page {
+  --paper: #F6F0E4;
+  --paper-deep: #EFE6D4;
+  --card: #FFFDF8;
+  --ink: #2B2A26;
+  --ink-soft: #6E675A;
+  --ink-faint: #A69C89;
+  --line: #E2D8C2;
+  --line-strong: #CFC2A6;
+  --red: #D64541;
+  --red-soft: #F7E3E0;
+  --blue: #3B6EA5;
+  --blue-soft: #E3EDF7;
+  --green: #4C8A5C;
+  --green-soft: #E5F0E7;
+  --amber: #C98A2D;
+  --amber-soft: #F6ECD9;
+
+  background: #F6F0E4;
+  color: #2B2A26;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+/* 通用卡片 */
+.card {
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 28rpx;
+  padding: 36rpx;
+  box-shadow: 0 4rpx 20rpx rgba(66, 54, 30, 0.07);
+}
+
+.page-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+.page-sub {
+  color: #6E675A;
+  font-size: 26rpx;
+  margin-bottom: 32rpx;
+}
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+}
+.section-title::before {
+  content: "";
+  width: 8rpx;
+  height: 32rpx;
+  background: #D64541;
+  border-radius: 4rpx;
+  margin-right: 16rpx;
+}
+
+/* 按钮 */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22rpx 40rpx;
+  border-radius: 22rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  border: none;
+  line-height: 1.4;
+}
+.btn::after { border: none; }
+.btn-primary {
+  background: #D64541;
+  color: #fff;
+  box-shadow: 0 6rpx 20rpx rgba(214, 69, 65, 0.3);
+}
+.btn-blue {
+  background: #3B6EA5;
+  color: #fff;
+  box-shadow: 0 6rpx 20rpx rgba(59, 110, 165, 0.3);
+}
+.btn-ghost {
+  background: #FFFDF8;
+  border: 1.5rpx solid #CFC2A6;
+  color: #2B2A26;
+}
+.btn-green {
+  background: #4C8A5C;
+  color: #fff;
+}
+.btn-block { width: 100%; }
+.btn-sm { padding: 14rpx 28rpx; font-size: 24rpx; border-radius: 16rpx; }
+.btn-disabled, .btn[disabled] { opacity: 0.5; }
+
+/* 徽章 */
+.badge {
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 10rpx;
+}
+.badge-subject { background: #E3EDF7; color: #3B6EA5; }
+.badge-tag { background: #F6ECD9; color: #C98A2D; }
+.badge-status { background: #F7E3E0; color: #D64541; }
+.badge-status-ok { background: #E5F0E7; color: #4C8A5C; }
+.badge-status-review { background: #F6ECD9; color: #C98A2D; }
+
+/* 筛选 chip */
+.chip-bar { display: flex; flex-wrap: wrap; gap: 16rpx; margin-bottom: 24rpx; }
+.chip {
+  padding: 12rpx 26rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  color: #6E675A;
+}
+.chip-active {
+  background: #2B2A26;
+  border-color: #2B2A26;
+  color: #F6F0E4;
+}
+
+/* 空状态 */
+.empty {
+  text-align: center;
+  padding: 90rpx 40rpx;
+  color: #A69C89;
+  background: #FFFDF8;
+  border: 2rpx dashed #CFC2A6;
+  border-radius: 28rpx;
+  font-size: 26rpx;
+}
+
+/* 横幅提醒 */
+.banner {
+  background: #F6ECD9;
+  border: 1.5rpx solid #E6D2A8;
+  color: #8A641F;
+  border-radius: 20rpx;
+  padding: 20rpx 28rpx;
+  font-size: 25rpx;
+  margin-bottom: 28rpx;
+  display: flex;
+  align-items: center;
+}

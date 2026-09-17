@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="page-title">错题本</view>
+  <view class="page-sub">按科目 / 状态筛选，每道都值得再讲一遍</view>
+
+  <view class="chip-bar">
+    <view
+      wx:for="{{subjects}}"
+      wx:key="*this"
+      class="chip {{subject === item ? 'chip-active' : ''}}"
+      data-v="{{item}}"
+      bindtap="pickSubject"
+    >{{item}}</view>
+  </view>
+  <view class="chip-bar">
+    <view
+      wx:for="{{statuses}}"
+      wx:key="*this"
+      class="chip {{status === item ? 'chip-active' : ''}}"
+      data-v="{{item}}"
+      bindtap="pickStatus"
+    >{{item}}</view>
+  </view>
+
+  <view class="m-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+    <view class="mc-top">
+      <text class="badge badge-subject">{{item.subject}}</text>
+      <text class="badge {{item.status === '已掌握' ? 'badge-status-ok' : (item.status === '复习中' ? 'badge-status-review' : 'badge-status')}}">{{item.status}}</text>
+      <text class="badge badge-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+    </view>
+    <view class="mc-stem">{{item.stem}}</view>
+    <view class="mc-bottom">
+      <text class="mc-reason" wx:if="{{item.reason}}">错因：{{item.reason}}</text>
+      <text class="mc-date" wx:if="{{item.created_at}}">{{item.created_at}}</text>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !list.length}}">这个分类下还没有错题</view>
+</view>

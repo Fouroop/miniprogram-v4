@@ -1,0 +1,74 @@
+<view class="page">
+  <!-- 顶部：科目切换 -->
+  <view class="subject-bar">
+    <view wx:for="{{subjects}}" wx:key="*this"
+      class="subject-tab {{subjectIndex === index ? 'active' : ''}}"
+      data-i="{{index}}" bindtap="onSubjectTap">{{item}}</view>
+  </view>
+
+  <!-- 掌握统计 -->
+  <view class="stat-card">
+    <view class="stat-item"><text class="stat-num">{{stat.total}}</text><text class="stat-label">全部知识点</text></view>
+    <view class="stat-item"><text class="stat-num s-mastered">{{stat.mastered}}</text><text class="stat-label">已掌握</text></view>
+    <view class="stat-item"><text class="stat-num s-reviewing">{{stat.reviewing}}</text><text class="stat-label">复习中</text></view>
+    <view class="stat-item"><text class="stat-num s-weak">{{stat.weak}}</text><text class="stat-label">薄弱</text></view>
+    <view class="stat-progress">
+      <view class="stat-bar" style="width: {{stat.total ? (stat.mastered / stat.total * 100) : 0}}%"></view>
+    </view>
+  </view>
+
+  <scroll-view class="tree-scroll" scroll-y enable-flex>
+    <block wx:if="{{!loading}}">
+      <!-- 章节 -->
+      <view class="chapter" wx:for="{{chapters}}" wx:key="id">
+        <view class="chapter-head" data-id="{{item.id}}" bindtap="toggleChapter">
+          <view class="chapter-name">{{item.name}}</view>
+          <view class="chapter-progress">
+            <view class="c-bar"><view class="c-bar-fill" style="width: {{item.total ? (item.mastered / item.total * 100) : 0}}%"></view></view>
+            <text class="c-num">{{item.mastered}}/{{item.total}}</text>
+          </view>
+          <view class="chapter-arrow {{item.open ? 'open' : ''}}">▾</view>
+        </view>
+        <!-- 知识点 -->
+        <view class="kp-list" wx:if="{{item.open}}">
+          <view class="kp-row" wx:for="{{item.kps}}" wx:for-item="kp" wx:for-index="kpi" wx:key="id"
+            data-cidx="{{index}}" data-idx="{{kpi}}" bindtap="onKpTap">
+            <view class="kp-dot"></view>
+            <view class="kp-name">{{kp.name}}</view>
+            <view class="kp-level {{kp.levelCls}}">{{kp.levelText}}</view>
+          </view>
+          <view class="kp-empty" wx:if="{{!item.kps.length}}">该章节暂无知识点</view>
+        </view>
+      </view>
+      <view class="tree-empty" wx:if="{{!chapters.length}}">暂无大纲数据</view>
+    </block>
+    <view class="tree-loading" wx:else>加载中…</view>
+    <view style="height: 40rpx"></view>
+  </scroll-view>
+
+  <!-- 掌握标记面板 -->
+  <view class="mask" wx:if="{{masteryPanel}}" bindtap="closePanel">
+    <view class="kp-panel" catchtap="noop">
+      <view class="kp-panel-title">标记掌握程度</view>
+      <view class="kp-panel-name">{{masteryPanel.name}}</view>
+      <view class="kp-opts">
+        <view class="kp-opt {{masterySel === 'weak' ? 'sel weak' : ''}}" data-v="weak" bindtap="selMastery">
+          <view class="ko-name">还没弄懂</view>
+          <view class="ko-desc">需要再讲一遍</view>
+        </view>
+        <view class="kp-opt {{masterySel === 'reviewing' ? 'sel reviewing' : ''}}" data-v="reviewing" bindtap="selMastery">
+          <view class="ko-name">有点会了</view>
+          <view class="ko-desc">过几天复习</view>
+        </view>
+        <view class="kp-opt {{masterySel === 'mastered' ? 'sel mastered' : ''}}" data-v="mastered" bindtap="selMastery">
+          <view class="ko-name">完全掌握</view>
+          <view class="ko-desc">可以跳过</view>
+        </view>
+      </view>
+      <view class="kp-actions">
+        <button class="btn btn-ghost btn-sm" bindtap="closePanel">取消</button>
+        <button class="btn btn-primary btn-sm" bindtap="confirmMastery">保存</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,126 @@
+<view class="page" bindtouchstart="onPageTouch">
+  <!-- 文字对话免费开放；语音通话按语音包计费（通话前校验） -->
+
+  <block>
+    <!-- 模式切换 -->
+    <view class="mode-switch">
+      <view class="mode-btn {{mode === 'text' ? 'active' : ''}}" data-mode="text" bindtap="switchMode">文字对话</view>
+      <view class="mode-btn {{mode === 'voice' ? 'active' : ''}}" data-mode="voice" bindtap="switchMode">语音提问</view>
+    </view>
+
+    <!-- ============ 文字模式 ============ -->
+    <view class="chat-wrap" wx:if="{{mode === 'text'}}">
+      <view class="chat-head">
+        <view class="ai-dot">AI</view>
+        <view class="chat-head-t">
+          <view class="chat-title">AI 苏格拉底导师 · {{topic}}</view>
+          <view class="chat-sub">不直接给答案，一步步问，直到你自己想通</view>
+        </view>
+        <view class="chat-head-action" bindtap="clearTextHistory">清空</view>
+      </view>
+
+      <!-- 题干可折叠 -->
+      <view class="stem-strip" wx:if="{{mistake}}" bindtap="toggleStem">
+        <view class="stem-head">题干原文 <text class="stem-toggle">{{stemOpen ? '[ 收起 ]' : '[ 展开 ]'}}</text></view>
+        <view class="stem-body" wx:if="{{stemOpen}}">{{mistake.stem}}</view>
+      </view>
+
+      <scroll-view class="chat-body" scroll-y scroll-top="{{scrollTop}}" scroll-with-animation enable-flex>
+        <view class="msg {{item.role === 'ai' ? 'ai' : 'user'}}" wx:for="{{messages}}" wx:key="index">
+          <view class="mini-av">{{item.role === 'ai' ? 'AI' : '我'}}</view>
+          <view class="bubble" bindlongpress="onMsgLongPress" data-idx="{{index}}">{{item.text}}</view>
+        </view>
+        <view class="msg ai" wx:if="{{typing}}">
+          <view class="mini-av">AI</view>
+          <view class="bubble typing"><text class="dot-i"></text><text class="dot-i"></text><text class="dot-i"></text></view>
+        </view>
+        <view style="height:20rpx"></view>
+      </scroll-view>
+
+      <view class="chat-input">
+        <input class="chat-input-box" value="{{inputText}}" bindinput="onInput" confirm-type="send" bindconfirm="sendText" placeholder="回答我的问题，或输入你想问的…" />
+        <button class="btn btn-blue btn-sm" bindtap="sendText">发送</button>
+      </view>
+    </view>
+
+    <!-- ============ 语音模式（按住说话） ============ -->
+    <view class="call-wrap" wx:if="{{mode === 'voice'}}">
+      <view class="call-head">
+        <view class="call-avatar">AI</view>
+        <view class="call-info">
+          <view class="call-title">AI 导师 · {{topic}}</view>
+          <view class="call-status">
+            <text class="dot {{callOn ? 'live' : ''}}"></text>{{callStatusText}}
+          </view>
+        </view>
+        <view class="call-clear" wx:if="{{callLog.length}}" bindtap="onClearCallLog">清空记录</view>
+      </view>
+
+      <!-- 题干可折叠 -->
+      <view class="stem-strip" wx:if="{{mistake}}" bindtap="toggleStem">
+        <view class="stem-head">题干原文 <text class="stem-toggle">{{stemOpen ? '[ 收起 ]' : '[ 展开 ]'}}</text></view>
+        <view class="stem-body" wx:if="{{stemOpen}}">{{mistake.stem}}</view>
+      </view>
+
+      <scroll-view class="call-body" scroll-y enable-flex>
+        <view class="call-bubble {{item.role === 'ai' ? 'ai' : 'user'}}" wx:for="{{callLog}}" wx:key="index"
+          bindlongpress="onDeleteLogItem" data-index="{{index}}">
+          <text class="cb-tag">{{item.role === 'ai' ? 'AI 导师' : (item.stream ? '我 · 识别中…' : '我')}}</text>
+          <view class="cb-text">{{item.text}}</view>
+        </view>
+        <!-- AI 思考中 -->
+        <view class="call-bubble ai" wx:if="{{typing}}">
+          <text class="cb-tag">AI 导师</text>
+          <view class="cb-text typing"><text class="dot-i"></text><text class="dot-i"></text><text class="dot-i"></text></view>
+        </view>
+        <view style="height:20rpx"></view>
+      </scroll-view>
+
+      <!-- 底部：按住说话（PTT）；仅一个按钮 -->
+      <view class="mic-bar">
+        <view class="mic-hint">{{!callOn ? '点击开始通话' : '按住说话，松开发送（AI 说话时按住可打断）'}}</view>
+        <view class="mic-row">
+          <view wx:if="{{!callOn}}" class="mic-btn start" bindtap="startCall">
+            <view class="mic-icon">开始通话</view>
+          </view>
+          <view wx:else class="mic-btn {{micPaused ? 'paused' : ''}}"
+            bindtouchstart="onMicTouchStart"
+            bindtouchend="onMicTouchEnd"
+            bindtouchcancel="onMicTouchEnd">
+            <view class="mic-icon">{{micPaused ? '说话中' : '按住说话'}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 通话后标记知识点掌握情况 -->
+  <view class="mask" wx:if="{{showMastery}}" bindtap="closeMastery">
+    <view class="mastery-panel" catchtap="noop">
+      <view class="mastery-title">这次通话后，掌握得怎么样？</view>
+      <view class="mastery-stem" wx:if="{{mistake}}">{{mistake.stem}}</view>
+      <view class="mastery-opts">
+        <view class="m-opt {{masterySel === 'weak' ? 'sel weak' : ''}}" data-v="weak" bindtap="selMastery">
+          <view class="m-opt-name">还没弄懂</view>
+          <view class="m-opt-desc">明天再问一次</view>
+        </view>
+        <view class="m-opt {{masterySel === 'reviewing' ? 'sel reviewing' : ''}}" data-v="reviewing" bindtap="selMastery">
+          <view class="m-opt-name">有点会了</view>
+          <view class="m-opt-desc">4 天后复习</view>
+        </view>
+        <view class="m-opt {{masterySel === 'mastered' ? 'sel mastered' : ''}}" data-v="mastered" bindtap="selMastery">
+          <view class="m-opt-name">完全掌握</view>
+          <view class="m-opt-desc">15 天后巩固</view>
+        </view>
+      </view>
+      <view class="mastery-tag-row">
+        <text class="mt-label">知识点</text>
+        <input class="mt-input" value="{{masteryTag}}" bindinput="onTagInput" placeholder="如：一元二次方程" />
+      </view>
+      <view class="mastery-actions">
+        <button class="btn btn-ghost btn-sm" bindtap="closeMastery">跳过</button>
+        <button class="btn btn-primary btn-sm" bindtap="confirmMastery">保存标记</button>
+      </view>
+    </view>
+  </view>
+</view>

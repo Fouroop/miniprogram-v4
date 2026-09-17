@@ -1,0 +1,17 @@
+.page { padding: 30rpx; }
+.top { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx; }
+.stem {
+  font-size: 30rpx;
+  line-height: 1.9;
+  margin-bottom: 28rpx;
+}
+.qa-box { border-radius: 20rpx; padding: 24rpx; margin-bottom: 16rpx; border: 1.5rpx solid; }
+.qa-t { font-size: 23rpx; font-weight: 700; margin-bottom: 10rpx; }
+.qa-c { font-size: 26rpx; line-height: 1.7; }
+.qa-box.wrong { background: #F7E3E0; border-color: #EBC4C1; }
+.qa-box.wrong .qa-t { color: #D64541; }
+.qa-box.right { background: #E3EDF7; border-color: #BFD4EA; }
+.qa-box.right .qa-t { color: #3B6EA5; }
+.qa-box.reason { background: #F6ECD9; border-color: #E6D2A8; }
+.qa-box.reason .qa-t { color: #C98A2D; }
+.actions { display: flex; gap: 16rpx; margin-top: 28rpx; }

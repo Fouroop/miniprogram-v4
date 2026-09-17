@@ -1,0 +1,204 @@
+/* pages/knowledge/knowledge.wxss */
+.page {
+  min-height: 100vh;
+  background: #F6F0E4;
+  padding: 20rpx 24rpx 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 科目切换 */
+.subject-bar {
+  display: flex;
+  gap: 14rpx;
+  overflow-x: auto;
+  padding-bottom: 16rpx;
+}
+.subject-tab {
+  flex-shrink: 0;
+  padding: 12rpx 30rpx;
+  border-radius: 999rpx;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  font-size: 26rpx;
+  color: #6B6252;
+}
+.subject-tab.active {
+  background: #3B6EA5;
+  border-color: #3B6EA5;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* 统计卡片 */
+.stat-card {
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 24rpx;
+  padding: 24rpx 20rpx 20rpx;
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 20rpx;
+}
+.stat-item {
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+.stat-num { font-size: 40rpx; font-weight: 800; color: #2B2A26; }
+.stat-num.s-mastered { color: #4C8A5C; }
+.stat-num.s-reviewing { color: #D99A3D; }
+.stat-num.s-weak { color: #D64541; }
+.stat-label { font-size: 22rpx; color: #A69C89; }
+.stat-progress {
+  width: 100%;
+  height: 14rpx;
+  border-radius: 999rpx;
+  background: #EFE6D4;
+  margin-top: 20rpx;
+  overflow: hidden;
+}
+.stat-bar {
+  height: 100%;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #4C8A5C, #7FB069);
+  transition: width 0.3s;
+}
+
+/* 大纲树 */
+.tree-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.chapter {
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+}
+.chapter-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 22rpx 24rpx;
+}
+.chapter-name {
+  flex-shrink: 0;
+  font-size: 29rpx;
+  font-weight: 700;
+  color: #2B2A26;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chapter-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+}
+.c-bar {
+  flex: 1;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: #EFE6D4;
+  overflow: hidden;
+}
+.c-bar-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: #7FB069;
+}
+.c-num { font-size: 22rpx; color: #A69C89; }
+.chapter-arrow {
+  font-size: 24rpx;
+  color: #A69C89;
+  transition: transform 0.2s;
+}
+.chapter-arrow.open { transform: rotate(180deg); }
+
+.kp-list {
+  border-top: 1.5rpx dashed #E2D8C2;
+  padding: 6rpx 0;
+}
+.kp-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+}
+.kp-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #C9BBA0;
+}
+.kp-name {
+  flex: 1;
+  font-size: 27rpx;
+  color: #4A4438;
+}
+.kp-level {
+  flex-shrink: 0;
+  font-size: 21rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+}
+.lv-none { background: #EFE6D4; color: #A69C89; }
+.lv-weak { background: #FBE3E0; color: #D64541; }
+.lv-reviewing { background: #FCEEDC; color: #D99A3D; }
+.lv-mastered { background: #E2F0E6; color: #4C8A5C; }
+.kp-empty { padding: 20rpx 24rpx; font-size: 24rpx; color: #A69C89; }
+.tree-empty { text-align: center; color: #A69C89; font-size: 26rpx; padding: 80rpx 0; }
+.tree-loading { text-align: center; color: #A69C89; font-size: 26rpx; padding: 80rpx 0; }
+
+/* 掌握标记面板 */
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.kp-panel {
+  width: 100%;
+  background: #FFFDF8;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 36rpx 32rpx 48rpx;
+  box-sizing: border-box;
+}
+.kp-panel-title { font-size: 30rpx; font-weight: 800; color: #2B2A26; text-align: center; }
+.kp-panel-name {
+  font-size: 26rpx;
+  color: #6B6252;
+  text-align: center;
+  margin: 10rpx 0 28rpx;
+}
+.kp-opts { display: flex; gap: 18rpx; }
+.kp-opt {
+  flex: 1;
+  background: #F6F0E4;
+  border: 2rpx solid transparent;
+  border-radius: 20rpx;
+  padding: 22rpx 0;
+  text-align: center;
+}
+.kp-opt.sel.weak { border-color: #D64541; background: #FBE3E0; }
+.kp-opt.sel.reviewing { border-color: #D99A3D; background: #FCEEDC; }
+.kp-opt.sel.mastered { border-color: #4C8A5C; background: #E2F0E6; }
+.ko-name { font-size: 28rpx; font-weight: 700; color: #2B2A26; }
+.ko-desc { font-size: 20rpx; color: #A69C89; margin-top: 6rpx; }
+.kp-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 36rpx;
+}
+.kp-actions .btn { flex: 1; }

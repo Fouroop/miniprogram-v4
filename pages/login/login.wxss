@@ -1,0 +1,81 @@
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+}
+.login-card {
+  width: 100%;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 36rpx;
+  padding: 60rpx 50rpx;
+  box-shadow: 0 20rpx 60rpx rgba(66, 54, 30, 0.12);
+}
+.login-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 50rpx;
+}
+.brand-mark {
+  margin-bottom: 20rpx;
+}
+.brand-circle {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 26rpx;
+  background: #FFFDF8;
+  border: 4rpx solid #CFC2A6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-check {
+  color: #D64541;
+  font-size: 52rpx;
+  font-weight: 700;
+}
+.brand-name {
+  font-size: 42rpx;
+  font-weight: 700;
+}
+.brand-red { color: #D64541; }
+.brand-slogan {
+  font-size: 24rpx;
+  color: #6E675A;
+  margin-top: 8rpx;
+}
+.login-field { margin-bottom: 32rpx; }
+.login-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #6E675A;
+  margin-bottom: 12rpx;
+}
+.login-input {
+  width: 100%;
+  padding: 36rpx 28rpx;
+  border: 1.5rpx solid #CFC2A6;
+  border-radius: 20rpx;
+  background: #F6F0E4;
+  font-size: 32rpx;
+  box-sizing: border-box;
+}
+
+/* 账号登录 / 微信登录 并排 */
+.btn-row {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 16rpx;
+}
+.btn-flex { flex: 1; }
+
+.wx-note {
+  margin-top: 28rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #A69C89;
+}

@@ -1,0 +1,30 @@
+<view class="page" wx:if="{{detail}}">
+  <view class="card">
+    <view class="top">
+      <text class="badge badge-subject">{{detail.subject}}</text>
+      <text class="badge badge-tag" wx:if="{{detail.tag}}">{{detail.tag}}</text>
+      <text class="badge {{detail.status === '已掌握' ? 'badge-status-ok' : (detail.status === '复习中' ? 'badge-status-review' : 'badge-status')}}">{{detail.status}}</text>
+    </view>
+
+    <view class="stem">{{detail.stem}}</view>
+
+    <view class="qa-box wrong" wx:if="{{detail.wrong_answer}}">
+      <view class="qa-t">我的错误答案</view>
+      <view class="qa-c">{{detail.wrong_answer}}</view>
+    </view>
+    <view class="qa-box right" wx:if="{{detail.answer}}">
+      <view class="qa-t">正确答案 / 解析</view>
+      <view class="qa-c">{{detail.answer}}</view>
+    </view>
+    <view class="qa-box reason" wx:if="{{detail.reason}}">
+      <view class="qa-t">错因定位</view>
+      <view class="qa-c">{{detail.reason}} —— 下次遇到同类题，先确认这一步。</view>
+    </view>
+
+    <view class="actions">
+      <button class="btn btn-blue" style="flex:1" bindtap="goChat">AI 苏格拉底辅导</button>
+      <button class="btn btn-ghost" bindtap="markMastered">标记已掌握</button>
+    </view>
+    <button class="btn btn-ghost btn-block" style="margin-top:16rpx;color:#D64541" bindtap="remove">删除错题</button>
+  </view>
+</view>

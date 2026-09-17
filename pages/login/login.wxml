@@ -1,0 +1,29 @@
+<view class="login-wrap">
+  <view class="login-card">
+    <view class="login-logo">
+      <view class="brand-mark">
+        <view class="brand-circle">
+          <text class="brand-check">✓</text>
+        </view>
+      </view>
+      <view class="brand-name">错题<text class="brand-red">AI辅导</text></view>
+      <view class="brand-slogan">拍照录错题 · AI苏格拉底式追问 · 逐个讲透</view>
+    </view>
+
+    <view class="login-field">
+      <text class="login-label">账号</text>
+      <input class="login-input" placeholder="请输入账号" value="{{username}}" bindinput="onUserInput" />
+    </view>
+    <view class="login-field">
+      <text class="login-label">密码</text>
+      <input class="login-input" password placeholder="请输入密码" value="{{password}}" bindinput="onPassInput" />
+    </view>
+
+    <!-- 账号登录 / 微信一键登录 并排 -->
+    <view class="btn-row">
+      <button class="btn btn-ghost btn-flex" loading="{{loading2}}" bindtap="doLogin">账 号 登 录</button>
+      <button class="btn btn-primary btn-flex" loading="{{loading}}" bindtap="wxLogin">微信一键登录</button>
+    </view>
+    <view class="wx-note">微信登录自动注册，昵称头像可在「我的」页随时设置</view>
+  </view>
+</view>
