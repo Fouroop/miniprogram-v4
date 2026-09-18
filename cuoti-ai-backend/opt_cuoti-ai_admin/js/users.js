@@ -25,6 +25,7 @@ async function renderUsers(page = 1, keyword = '') {
       <td>${new Date(u.created_at).toLocaleDateString()}</td>
       <td>
         <button class="btn btn-sm" onclick="editUser(${u.id}, '${esc(u.username)}', '${esc(u.nickname||'')}', '${esc(u.grade||'')}', ${u.is_vip}, '${u.vip_expire ? new Date(u.vip_expire).toISOString().slice(0,16) : ''}')">编辑</button>
+        <button class="btn btn-sm" onclick="showUserApplies(${u.id}, '${esc(u.nickname||u.username)}')">申请记录</button>
         <button class="btn btn-sm btn-danger" onclick="delUser(${u.id})">删除</button>
       </td>
     </tr>`).join('');
@@ -62,4 +63,34 @@ async function delUser(id) {
   const r = await api('DELETE', `/admin/users/${id}`);
   toast(r.ok ? '已删除' : r.error);
   if (r.ok) renderUsers(usersPage, document.getElementById('uKeyword').value.trim());
+}
+
+// 用户申请记录弹窗（对应"申请管理"已通过的套餐）
+async function showUserApplies(id, name) {
+  openModal(`申请记录 · ${name}`, '<div class="empty">加载中…</div>', closeModal);
+  const r = await api('GET', `/admin/users/${id}/applies`);
+  if (!r.ok) { document.getElementById('modalBody').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+  const d = r.data;
+  const typeName = { register: '注册通知', voice: '语音包', vip: '会员' };
+  const statusName = { pending: '待审核', approved: '已通过', rejected: '已拒绝' };
+  const cur = d.current || {};
+  const head = `
+    <div style="font-size:13px;color:#666;margin-bottom:8px">
+      当前权益：语音包 <b style="color:#8B1E1A">${cur.voice_mb || 0} MB</b>（${cur.voice_expire ? '至 ' + new Date(cur.voice_expire).toLocaleDateString() : '无到期'}）·
+      ${cur.is_vip ? 'VIP（至 ' + new Date(cur.vip_expire).toLocaleDateString() + '）' : '非VIP'}
+    </div>`;
+  const rows = (d.applies || []).map(a => `
+    <tr>
+      <td>#${a.id}</td>
+      <td><span class="tag tag-${a.type}">${typeName[a.type] || a.type}</span></td>
+      <td>${esc(a.plan_name || '—')}</td>
+      <td>¥${Number(a.amount || 0).toFixed(2)}</td>
+      <td><span class="tag tag-${a.status}">${statusName[a.status] || a.status}</span></td>
+      <td style="font-size:12px;color:#888">${(a.created_at || '').slice(0, 16).replace('T', ' ')}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">暂无申请记录</td></tr>';
+  document.getElementById('modalBody').innerHTML = head + `
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>类型</th><th>内容</th><th>金额</th><th>状态</th><th>时间</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
 }

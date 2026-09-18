@@ -133,7 +133,6 @@ router.post('/wxlogin', async (req, res) => {
       [username, passwordHash, nickname ? String(nickname).slice(0, 32) : '微信用户', avatarUrl, 'student', openid]
     );
     user = { id: r.insertId, username, nickname: nickname ? String(nickname).slice(0, 32) : '微信用户', avatar: avatarUrl, role: 'student' };
-    await ensurePresetMistakes(user.id);
     // 新用户注册通知管理后台（register 申请，管理员在"申请管理"处理）
     await pool.query(
       "INSERT INTO apply_records (user_id, type, plan_name, remark) VALUES (?, 'register', ?, ?)",
@@ -211,8 +210,6 @@ router.post('/login', async (req, res) => {
   const u = rows[0];
   if (!bcrypt.compareSync(password, u.password_hash)) return res.json({ ok: false, error: '密码错误' });
   const token = jwt.sign({ id: u.id, username: u.username, role: u.role }, config.jwt.userSecret, { expiresIn: config.jwt.userExpire });
-  // 老用户空错题本也补上预置题目
-  try { await ensurePresetMistakes(u.id); } catch (e) { console.error('[auth] ensurePresetMistakes error:', e); }
   res.json({ ok: true, data: { token, user: pickUser(u) } });
 });
 
@@ -228,8 +225,6 @@ router.post('/register', async (req, res) => {
     [username, hash, nickname || username, grade || '']
   );
   const token = jwt.sign({ id: r.insertId, username, role: 'student' }, config.jwt.userSecret, { expiresIn: config.jwt.userExpire });
-  // 新用户自动预置各科题目
-  try { await ensurePresetMistakes(r.insertId); } catch (e) { console.error('[auth] ensurePresetMistakes error:', e); }
   // 注册通知管理后台
   await pool.query(
     "INSERT INTO apply_records (user_id, type, plan_name, remark) VALUES (?, 'register', ?, '账号密码注册')",

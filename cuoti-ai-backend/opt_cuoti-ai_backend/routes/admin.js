@@ -59,6 +59,18 @@ router.get('/users/:id', async (req, res) => {
   res.json({ ok: true, data: rows[0] });
 });
 
+// 用户申请记录（注册通知/语音包/会员，含已通过套餐对应）
+router.get('/users/:id/applies', async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT id, type, plan, plan_name, amount, status, remark, handled_by, handled_at, created_at
+     FROM apply_records WHERE user_id=? ORDER BY id DESC LIMIT 50`,
+    [req.params.id]
+  );
+  // 汇总已生效权益
+  const [u] = await pool.query('SELECT voice_mb, voice_expire, is_vip, vip_expire FROM users WHERE id=?', [req.params.id]);
+  res.json({ ok: true, data: { applies: rows, current: u.length ? u[0] : null } });
+});
+
 router.put('/users/:id', async (req, res) => {
   const { nickname, grade, is_vip, vip_expire } = req.body;
   await pool.query('UPDATE users SET nickname=?, grade=?, is_vip=?, vip_expire=? WHERE id=?',
