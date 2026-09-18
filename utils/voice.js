@@ -53,6 +53,26 @@ function createStreamingPlayer(opts) {
   var scheduledSources = []; // 待播放的 source 节点
   var muted = false; // 静音缓冲：只进缓冲不播放，等用户手势解锁（unmute）后从头播放
 
+  // iOS 微信 WebAudioContext 未解锁状态：suspended（无手势创建）/ interrupted（系统打断）/ default（微信基础库默认未激活）
+  // 只有 state==='running'（或 'closed'）才真正输出声音
+  function isLocked(s) { return s === 'suspended' || s === 'interrupted' || s === 'default'; }
+
+  // resume 生效是异步的：等 state 变 running 再调度，避免在未解锁时间线调度导致无声
+  function waitRunningThenPlay() {
+    if (started) return;
+    var a = ensureAc();
+    if (!isLocked(a.state)) { startPlayback(); return; }
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      var st = ensureAc().state;
+      if (!isLocked(st) || tries >= 20) { // 上限约 1s，兜底启动
+        clearInterval(t);
+        if (!started) startPlayback();
+      }
+    }, 50);
+  }
+
   function ensureAc() {
     if (!ac || ac.state === 'closed') {
       try { ac = wx.createWebAudioContext({ sampleRate: DOWN_RATE }); }
@@ -128,24 +148,25 @@ function createStreamingPlayer(opts) {
     playing = true;
     startTime = a.currentTime + 0.02; // 20ms 缓冲
     writePos = 0;
+    console.log('[StreamingPlayer] startPlayback state=' + a.state + ' samples=' + sampleBuf.length + ' rate=' + a.sampleRate);
     if (opts && opts.onPlay) opts.onPlay(true);
     scheduleNewChunks();
   }
 
-  // 启动前先解锁 AudioContext（iOS 无手势创建为 suspended，直接调度会无声）
-  // sync=true（用户手势栈内调用，如轻触/按住）：同步 resume 后立即启动——
+  // 启动前先解锁 AudioContext（iOS 无手势创建为 locked，直接调度会无声）
+  // sync=true（用户手势栈内调用，如轻触/按住）：同步 resume 后等 state 变 running 再播放——
   //   iOS 微信里 resume().then() 的 Promise 回调不可靠，但手势栈内同步 resume 立即生效
   // sync=false（网络回调等非手势场景）：解锁失败则挂起等待，等手势后 retry()
   function startWhenReady(sync) {
     if (started) return;
     var a = ensureAc();
-    if (a.state === 'suspended' || a.state === 'interrupted') {
+    if (isLocked(a.state)) {
       if (a.resume) {
         if (sync) {
           try { a.resume(); } catch (e) {}
-          startPlayback();
+          waitRunningThenPlay();
         } else {
-          a.resume().then(function () { startPlayback(); }).catch(function () {
+          a.resume().then(function () { waitRunningThenPlay(); }).catch(function () {
             // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
           });
         }
@@ -197,11 +218,11 @@ function createStreamingPlayer(opts) {
       playing = false;
       if (opts && opts.onPlay) opts.onPlay(false);
     },
-    // iOS/微信：state 可能是 suspended（无手势创建）或 interrupted（被系统打断）
+    // iOS/微信：state 可能是 suspended（无手势创建）/ interrupted（被系统打断）/ default（未激活）
     // 解锁必须在用户手势调用栈内同步执行（如按住 MIC 的 touchstart），异步调用会被拒绝
     unlock() {
       var a = ensureAc();
-      if (a && (a.state === 'suspended' || a.state === 'interrupted') && a.resume) {
+      if (a && isLocked(a.state) && a.resume) {
         try { a.resume(); } catch (e) {}
       }
       return a.state;
@@ -213,7 +234,7 @@ function createStreamingPlayer(opts) {
         // 手势栈内同步解锁 AudioContext：无论缓冲是否已到，先解锁，
         // 确保后续音频一到达（muted=false）即可直接播放，无需二次触摸
         var a = ensureAc();
-        if ((a.state === 'suspended' || a.state === 'interrupted') && a.resume) {
+        if (isLocked(a.state) && a.resume) {
           try { a.resume(); } catch (e) {}
         }
         if (!started && sampleBuf.length > 0) startWhenReady(true);
@@ -221,18 +242,17 @@ function createStreamingPlayer(opts) {
     },
     retry() {
       // 手势栈内重试（onPageTouch 同步调用）：iOS 微信 resume().then 回调不可靠，
-      // 改为同步 resume 后立即从头播放缓冲（或重新调度已 started 但无 source 的播放）
+      // 改为同步 resume 后等 state 变 running 再从头播放（或重新调度已 started 但无 source 的播放）
       var a = ensureAc();
-      if (a.state === 'suspended' || a.state === 'interrupted') {
+      if (isLocked(a.state)) {
         if (a.resume) {
           try { a.resume(); } catch (e) {}
-          if (!started && sampleBuf.length > 0) {
-            startPlayback();
-          } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
+          waitRunningThenPlay();
+          if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
             // 已 started 但没有任何 source 真正调度上 → 重新启动
             started = false;
             playing = false;
-            startPlayback();
+            waitRunningThenPlay();
           }
         }
       } else if (!started && sampleBuf.length > 0) {
@@ -784,6 +804,8 @@ class VoiceCall {
     }
     this._micActive = true;
     this._framesReceived = false;
+    // RecorderManager 是全局单例：start 前先 stop，清掉上个会话残留的录音状态
+    try { this.recorder.stop(); } catch (e) {}
     try {
       this.recorder.start({
         duration: 600000, // 10 分钟上限
@@ -796,6 +818,7 @@ class VoiceCall {
         fail: function (e) {
           console.warn('[VoiceCall] rm.start fail:', e && e.errMsg);
           self._micActive = false;
+          self._emit('onError', '录音启动失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
         }
       });
     } catch (e) {

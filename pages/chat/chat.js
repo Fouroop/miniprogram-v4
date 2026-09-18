@@ -149,7 +149,8 @@ Page({
     // 首次轻触：AI 第一轮语音从缓冲开始播放（此后问答正常流式出声）
     if (this.voice && this.voice._muteUntilTouch !== false) this.voice.setMuteUntilTouch(false);
     const ac = this._audioCtx;
-    if (ac && (ac.state === 'suspended' || ac.state === 'interrupted') && ac.resume) {
+    const locked = ac && (ac.state === 'suspended' || ac.state === 'interrupted' || ac.state === 'default');
+    if (locked && ac.resume) {
       try { ac.resume(); } catch (e) {}
       if (this.voice) this.voice.retry();
     } else if (this.voice) {
@@ -317,7 +318,9 @@ Page({
       if (wx.createWebAudioContext) {
         try { this._audioCtx = wx.createWebAudioContext({ sampleRate: DOWN_RATE }); }
         catch (e) { this._audioCtx = wx.createWebAudioContext(); }
-        if (this._audioCtx.state === 'suspended' && this._audioCtx.resume) this._audioCtx.resume();
+        if (this._audioCtx.state === 'suspended' || this._audioCtx.state === 'interrupted' || this._audioCtx.state === 'default') {
+          if (this._audioCtx.resume) this._audioCtx.resume();
+        }
       }
     } catch (e) {}
   },
