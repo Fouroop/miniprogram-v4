@@ -425,8 +425,9 @@ Page({
           }).catch(() => {})
         : Promise.resolve();
       prep.then(() => {
-        // 题干就绪后重新生成开场白（结合刚拿到的题目/错因），再开口
-        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx);
+        // 题干就绪后重新生成开场白（结合刚拿到的题目/错因）
+        // 首次进入只发文字、不播开场白语音（iOS 无声问题规避）；问答环节正常出声
+        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx, { muteGreeting: true });
       });
     });
     this._voiceConnecting = p;

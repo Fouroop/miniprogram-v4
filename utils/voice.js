@@ -297,11 +297,13 @@ class VoiceCall {
    * @param {string} greeting     接通后招呼语
    * @param {AudioContext} audioContext 可选的共享 AudioContext
    */
-  start(instructions, greeting, audioContext) {
+  start(instructions, greeting, audioContext, opts) {
     const self = this;
     this._reconnects = 0;
     this._closedByUser = false;
     this._greeted = false;
+    // 首次进入只显示文字：开场白音频静音（丢弃不播），第一轮 response.done 后自动恢复
+    this._dropAudio = !!(opts && opts.muteGreeting);
     this.opening = true;
     this._emit('onStatus', '正在连接 AI 导师…', false);
 
@@ -492,6 +494,8 @@ class VoiceCall {
       // AI 开始输出音频（播放由 output_audio.delta 驱动，这里只需标记）
       console.log('[VoiceCall] AI 开始输出音频');
     } else if (t === 'response.output_audio.delta') {
+      // 开场白静音模式：只显示文字，丢弃音频
+      if (this._dropAudio) return;
       // AI 音频：base64 PCM s16le 24kHz，增量入播放器（收到即播）
       const b64 = msg.delta || msg.audio || '';
       if (b64) {
@@ -505,6 +509,7 @@ class VoiceCall {
 
     } else if (t === 'response.done') {
       // 一轮交互结束：音频可能还在播放，等播放结束再恢复麦克风
+      this._dropAudio = false; // 开场白结束，后续问答正常出声
       if (this.player) this.player.flush();
       if (this.aiStream) {
         this._emit('onAiTextDone');
@@ -694,6 +699,8 @@ class VoiceCall {
   // 按住 MIC（PTT）：清空服务端缓冲（丢弃静音帧）、停止 AI 播放、启动录音器采集上传
   interruptMic() {
     const self = this;
+    // 用户主动插话 → 后续 AI 回复恢复正常出声
+    this._dropAudio = false;
     if (this.connected && this._ws && this._ws.readyState === 1) {
       this._send({ type: 'input_audio_buffer.clear' });
     }
