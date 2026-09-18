@@ -12,7 +12,7 @@ const UP_RATE = 16000;
 const DOWN_RATE = 24000;
 const FRAME_BYTES = 640; // 20ms * 16000 * 2bytes = 640
 // 流式播放启动阈值：积累多少样本后才开始播放（防首帧杂音，~50ms）
-const STREAM_START_SAMPLES = Math.floor(DOWN_RATE * 0.05);
+const STREAM_START_SAMPLES = Math.floor(DOWN_RATE * 0.15); // 0.15s 启动缓冲：太小网络抖动即断（电音/卡顿）
 
 /* ---------- 24kHz → 设备采样率 线性重采样 ---------- */
 function resamplePcm16(i16, fromRate, toRate) {
@@ -349,6 +349,7 @@ class VoiceCall {
     this._userTextBuf = '';
     this._vadDoneTimer = null;
     this._suppressAudio = false; // 打断后抑制服务端残余音频（避免截断尾巴重播导致声音异常）
+    this._suppressTimer = null;  // 抑制解除兜底定时器
     // VoiceSession 状态机：IDLE→INITIALIZING→AUDIO_UNLOCKED→CONNECTING→LISTENING→
     // USER_SPEAKING→THINKING→AI_SPEAKING→INTERRUPTED→LISTENING→ENDED（所有转换可追踪日志）
     this._state = 'IDLE';
@@ -565,11 +566,20 @@ class VoiceCall {
       if (this._state === 'AI_SPEAKING' || this._state === 'THINKING') {
         console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] VAD: user speech during AI playback -> interrupt');
         this._suppressAudio = true; // 抑制服务端残余音频，防止截断尾巴重播
+        clearTimeout(this._suppressTimer);
+        const self2 = this;
+        this._suppressTimer = setTimeout(function () { self2._suppressAudio = false; }, 2000); // 兜底解除
         if (this.player) { try { this.player.interrupt(); } catch (e) {} }
         if (this.connected && this._ws && this._ws.readyState === 1) {
           this._send({ type: 'input_audio_buffer.clear' });
         }
         this.setState('INTERRUPTED');
+        // 打断后立即恢复收音：用户后半句话必须能继续上传（否则服务端听不全 → 回复异常/没声音）
+        this._aiPausedMic = false;
+        this._micPaused = false;
+        this.pcmCache = new Uint8Array(0);
+        this._postAiGuard = false;
+        clearTimeout(this._postAiGuardTimer);
       }
       this._userSpeaking = true;
       this._emit('onRecognizing', true);
@@ -595,7 +605,9 @@ class VoiceCall {
       if (txt) this._emit('onUserText', txt);
 
     } else if (t === 'response.output_text.delta') {
-      // AI 开始生成回复 → THINKING（生成/合成中，尚未播放）
+      // AI 开始生成回复 → THINKING（生成/合成中，尚未播放）；新一轮回复开始 → 解除打断抑制
+      this._suppressAudio = false;
+      clearTimeout(this._suppressTimer);
       if (this._state === 'LISTENING' || this._state === 'USER_SPEAKING') this.setState('THINKING');
       const txt = (msg.delta || msg.text || '').trim();
       if (txt) {
@@ -640,11 +652,13 @@ class VoiceCall {
     } else if (t === 'response.output_audio.done') {
       // AI 音频结束：确保缓冲全部播放
       this._suppressAudio = false;
+      clearTimeout(this._suppressTimer);
       if (this.player) this.player.flush();
 
     } else if (t === 'response.done') {
       // 一轮交互结束：音频可能还在播放，等播放结束再恢复麦克风
       this._suppressAudio = false;
+      clearTimeout(this._suppressTimer);
       if (this.player) this.player.flush();
       if (this.aiStream) {
         this._emit('onAiTextDone');
@@ -667,6 +681,10 @@ class VoiceCall {
 
     } else if (t === 'response.canceled') {
       console.log('[VoiceCall] response.canceled（取消响应确认）');
+      // 取消响应 = 打断收尾信号：解除残余音频抑制（否则后续轮次会一直无声只出文字）
+      this._suppressAudio = false;
+      clearTimeout(this._suppressTimer);
+      this._resumeMicWithGuard();
 
     } else if (t) {
       console.log('[VoiceCall] 未处理事件:', t);
@@ -915,6 +933,8 @@ class VoiceCall {
   // 全双工免按开麦：点击【开始语音聊天】接通后自动开启，直接说话即可；
   // AI 播放期间帧在 _appendPcmFrame 被状态机闸门丢弃（防回环），AI 说完自动恢复收音
   startMicFullDuplex() {
+    this._suppressAudio = false;
+    clearTimeout(this._suppressTimer);
     this._aiPausedMic = false;
     this._doneWaitForPlay = false;
     this._postAiGuard = false;
@@ -940,6 +960,9 @@ class VoiceCall {
     }
     if (this.player) this.player.interrupt();
     this._suppressAudio = true; // 抑制服务端残余音频
+    clearTimeout(this._suppressTimer);
+    const self2 = this;
+    this._suppressTimer = setTimeout(function () { self2._suppressAudio = false; }, 2000); // 兜底解除
     this._aiPausedMic = false;
     this._doneWaitForPlay = false;
     this._postAiGuard = false;
