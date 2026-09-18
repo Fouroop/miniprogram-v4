@@ -348,6 +348,7 @@ class VoiceCall {
     this._framesReceived = false;
     this._userTextBuf = '';
     this._vadDoneTimer = null;
+    this._suppressAudio = false; // 打断后抑制服务端残余音频（避免截断尾巴重播导致声音异常）
     // VoiceSession 状态机：IDLE→INITIALIZING→AUDIO_UNLOCKED→CONNECTING→LISTENING→
     // USER_SPEAKING→THINKING→AI_SPEAKING→INTERRUPTED→LISTENING→ENDED（所有转换可追踪日志）
     this._state = 'IDLE';
@@ -563,6 +564,7 @@ class VoiceCall {
       // 全双工免按：AI 播放中检测到用户说话 → 立即打断（Barge-in）
       if (this._state === 'AI_SPEAKING' || this._state === 'THINKING') {
         console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] VAD: user speech during AI playback -> interrupt');
+        this._suppressAudio = true; // 抑制服务端残余音频，防止截断尾巴重播
         if (this.player) { try { this.player.interrupt(); } catch (e) {} }
         if (this.connected && this._ws && this._ws.readyState === 1) {
           this._send({ type: 'input_audio_buffer.clear' });
@@ -615,9 +617,18 @@ class VoiceCall {
 
     } else if (t === 'response.output_audio.started') {
       // AI 开始输出音频（播放由 output_audio.delta 驱动，这里只需标记）
+      if (this._suppressAudio) {
+        console.log('[VoiceCall] 打断抑制中，忽略 output_audio.started');
+        return;
+      }
       console.log('[VoiceCall] AI 开始输出音频');
     } else if (t === 'response.output_audio.delta') {
       // AI 音频：base64 PCM s16le 24kHz，增量入播放器（收到即播）
+      // 打断抑制：interrupt 后服务端仍会推送残余音频，直接丢弃，避免截断尾巴重播
+      if (this._suppressAudio) {
+        console.log('[VoiceCall] 打断抑制中，丢弃残余音频 chunk');
+        return;
+      }
       const b64 = msg.delta || msg.audio || '';
       console.log('[VoiceCall] audioDelta b64=' + (b64 ? b64.length : 0) + ' keys=' + Object.keys(msg).join(',') + ' player=' + !!(this.player));
       if (b64) {
@@ -628,10 +639,12 @@ class VoiceCall {
 
     } else if (t === 'response.output_audio.done') {
       // AI 音频结束：确保缓冲全部播放
+      this._suppressAudio = false;
       if (this.player) this.player.flush();
 
     } else if (t === 'response.done') {
       // 一轮交互结束：音频可能还在播放，等播放结束再恢复麦克风
+      this._suppressAudio = false;
       if (this.player) this.player.flush();
       if (this.aiStream) {
         this._emit('onAiTextDone');
@@ -833,8 +846,10 @@ class VoiceCall {
     const rm = wx.getRecorderManager();
     this.recorder = rm;
     // 实时 PCM 分片：每录满 frameSize 回调一次，边录边传
+    // 注意：不做 !_micPaused 过滤——帧一律进 _appendPcmFrame，
+    // 由它内部决定上传静音帧（AI 播放/回声保护，维持服务端输入流不断）还是真实帧
     rm.onFrameRecorded(function (res) {
-      if (res && res.frameBuffer && self._micActive && !self._micPaused) {
+      if (res && res.frameBuffer && self._micActive) {
         self._appendPcmFrame(res.frameBuffer);
       }
     });
@@ -924,6 +939,7 @@ class VoiceCall {
       this._send({ type: 'input_audio_buffer.clear' });
     }
     if (this.player) this.player.interrupt();
+    this._suppressAudio = true; // 抑制服务端残余音频
     this._aiPausedMic = false;
     this._doneWaitForPlay = false;
     this._postAiGuard = false;
