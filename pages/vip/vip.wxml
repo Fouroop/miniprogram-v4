@@ -1,16 +1,16 @@
 <view class="page">
   <view class="page-title">语音包</view>
-  <view class="page-sub">按语音包计费，AI 语音通话讲题更灵活</view>
+  <view class="page-sub">按语音流量计费，AI 语音通话讲题更灵活</view>
 
   <!-- 当前余量 -->
   <view class="cur-balance">
     <view class="cb-left">
-      <view class="cb-num">{{voiceBal.minutes}}<text class="cb-unit">分钟</text></view>
+      <view class="cb-num">{{voiceBal.minutes}}<text class="cb-unit">MB</text></view>
       <view class="cb-sub" wx:if="{{voiceBal.status === 'active'}}">有效期至 {{voiceBal.expireText}}</view>
       <view class="cb-sub warn" wx:elif="{{voiceBal.status === 'expired'}}">已过期，请续购</view>
       <view class="cb-sub" wx:else>暂无语音包</view>
     </view>
-    <view class="cb-tip">语音通话按分钟扣减</view>
+    <view class="cb-tip">语音通话按流量扣减（MB）</view>
   </view>
 
   <view class="pay-card {{item.hot ? 'hot' : ''}}" wx:for="{{plans}}" wx:key="plan" data-key="{{item.plan}}" bindtap="buy">
@@ -18,11 +18,11 @@
     <view class="pc-name">{{item.name}}</view>
     <view class="pc-price">¥{{item.price}}<text class="pc-unit"> / {{item.duration_days >= 365 ? '年' : (item.duration_days >= 30 ? '月' : '次')}}</text></view>
     <view class="pc-note">{{item.desc_text}}</view>
-    <view class="pc-feat">✓ 含 {{item.minutes}} 分钟 AI 语音通话</view>
+    <view class="pc-feat">✓ 含 {{item.minutes}} MB AI 语音流量</view>
     <view class="pc-feat">✓ {{item.duration_days}} 天有效，随时打断</view>
     <view class="btn {{item.hot ? 'btn-primary' : 'btn-ghost'}} btn-block btn-sm pc-btn">立即开通</view>
   </view>
 
-  <view class="pay-note">点击套餐 → 添加管理员微信申请开通，管理员确认后发放分钟数</view>
+  <view class="pay-note">点击套餐 → 添加管理员微信申请开通，管理员确认后发放流量</view>
   <view class="bottom-space"></view>
 </view>

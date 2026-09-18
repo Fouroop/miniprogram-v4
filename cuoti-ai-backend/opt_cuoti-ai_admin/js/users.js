@@ -21,7 +21,7 @@ async function renderUsers(page = 1, keyword = '') {
       <td>${esc(u.grade)}</td>
       <td>${u.is_vip ? '<span class="tag green">VIP</span>' : '<span class="tag">普通</span>'}</td>
       <td>${u.vip_expire ? new Date(u.vip_expire).toLocaleString() : '-'}</td>
-      <td>${u.voice_minutes ? `<b style="color:#8B1E1A">${u.voice_minutes} 分钟</b>` : '0 分钟'}</td>
+      <td>${u.voice_mb ? `<b style="color:#8B1E1A">${u.voice_mb} MB</b>` : '0 MB'}</td>
       <td>${new Date(u.created_at).toLocaleDateString()}</td>
       <td>
         <button class="btn btn-sm" onclick="editUser(${u.id}, '${esc(u.username)}', '${esc(u.nickname||'')}', '${esc(u.grade||'')}', ${u.is_vip}, '${u.vip_expire ? new Date(u.vip_expire).toISOString().slice(0,16) : ''}')">编辑</button>

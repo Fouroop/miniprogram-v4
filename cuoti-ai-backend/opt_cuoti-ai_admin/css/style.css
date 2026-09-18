@@ -161,3 +161,9 @@ tr:hover td { background: #fafbfe; }
 }
 .form-grid textarea { resize: vertical; }
 @media (max-width: 900px) { .traffic-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* 知识大纲 */
+.kn-cell { color:#999; text-align:center; font-size:12px; }
+.kn-cell.has { color:#1a7f37; cursor:pointer; font-weight:600; }
+.kn-cell.has:hover { background:#f0f7f1; }
+.crumb { margin-left:12px; color:#666; }

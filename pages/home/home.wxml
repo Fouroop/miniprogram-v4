@@ -14,7 +14,7 @@
       <view class="call-hero-desc">按住说话 · AI 引导式思维</view>
     </view>
     <view class="call-hero-right">
-      <view class="call-hero-min">{{voiceBal.minutes}} 分钟</view>
+      <view class="call-hero-min">{{voiceBal.minutes}} MB</view>
       <view class="call-hero-go">去对话 ></view>
     </view>
   </view>

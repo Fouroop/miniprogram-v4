@@ -85,35 +85,36 @@ router.post('/wxpay/notify', async (req, res) => {
 // ================= 以下路由需要用户登录 =================
 router.use(userAuth);
 
-// ---------- 套餐列表（3档） ----------
+// ---------- 套餐列表（3档，按流量配额） ----------
 router.get('/plans', async (req, res) => {
   const [rows] = await pool.query(
-    'SELECT plan, name, minutes, price, duration_days, desc_text, hot FROM voice_plans WHERE is_active=1 ORDER BY price'
+    'SELECT plan, name, quota_mb, minutes, price, duration_days, desc_text, hot FROM voice_plans WHERE is_active=1 ORDER BY price'
   );
   res.json({ ok: true, data: rows });
 });
 
-// ---------- 余额查询（实时） ----------
+// ---------- 余额查询（实时，按流量 MB） ----------
 router.get('/balance', async (req, res) => {
   const [rows] = await pool.query(
-    'SELECT voice_minutes, voice_expire FROM users WHERE id=?', [req.user.id]
+    'SELECT voice_mb, voice_expire FROM users WHERE id=?', [req.user.id]
   );
   const u = rows[0];
   if (!u) return res.json({ ok: false, error: '用户不存在' });
   const now = new Date();
   const expired = u.voice_expire && new Date(u.voice_expire) < now;
-  const min = Number(u.voice_minutes || 0);
+  const mb = Number(u.voice_mb || 0);
   res.json({
     ok: true,
     data: {
-      minutes: expired ? 0 : min,
+      mb: expired ? 0 : mb,
+      minutes: expired ? 0 : mb, // 兼容字段（旧前端按分钟显示），新前端用 mb
       expire: expired ? null : u.voice_expire,
-      status: expired ? 'expired' : (min > 0 ? 'active' : 'empty')
+      status: expired ? 'expired' : (mb > 0 ? 'active' : 'empty')
     }
   });
 });
 
-// ---------- 购买语音包（模拟支付，演示用） ----------
+// ---------- 购买语音包（流量模板，人工开通走 /voice/admin-contact） ----------
 router.post('/order', async (req, res) => {
   const { plan } = req.body;
   const [plans] = await pool.query('SELECT * FROM voice_plans WHERE plan=? AND is_active=1', [plan]);
@@ -122,9 +123,9 @@ router.post('/order', async (req, res) => {
 
   const [r] = await pool.query(
     'INSERT INTO voice_orders (user_id, plan, plan_name, minutes, amount, status, pay_type) VALUES (?,?,?,?,?,?,?)',
-    [req.user.id, p.plan, p.name, p.minutes, p.price, 'paid', 'simulate']
+    [req.user.id, p.plan, p.name, p.quota_mb || p.minutes, p.price, 'paid', 'simulate']
   );
-  await grantVoiceMinutes(req.user.id, p.minutes, p.duration_days);
+  await grantVoiceMb(req.user.id, p.quota_mb || p.minutes, p.duration_days);
   res.json({ ok: true, data: { order_id: r.insertId, status: 'paid', pay_type: 'simulate' } });
 });
 
@@ -142,84 +143,88 @@ router.post('/wxpay/prepay', async (req, res) => {
   res.json({ ok: true, data: result.data });
 });
 
-// ---------- 通话开始前校验余额 ----------
+// ---------- 通话开始前校验余额（按流量） ----------
 router.post('/start', async (req, res) => {
   const [rows] = await pool.query(
-    'SELECT voice_minutes, voice_expire FROM users WHERE id=?', [req.user.id]
+    'SELECT voice_mb, voice_expire FROM users WHERE id=?', [req.user.id]
   );
   const u = rows[0];
   if (!u) return res.json({ ok: false, error: '用户不存在' });
   const now = new Date();
   const expired = u.voice_expire && new Date(u.voice_expire) < now;
   // 业务校验返回 allow:false（而非 ok:false），前端据此弹"去开通"，不触发统一错误 toast
-  if (expired || parseFloat(u.voice_minutes || 0) <= 0) {
-    return res.json({ ok: true, data: { allow: false, minutes: 0, reason: expired ? 'expired' : 'empty' } });
+  if (expired || parseFloat(u.voice_mb || 0) <= 0) {
+    return res.json({ ok: true, data: { allow: false, mb: 0, reason: expired ? 'expired' : 'empty' } });
   }
-  res.json({ ok: true, data: { allow: true, minutes: Number(u.voice_minutes || 0) } });
+  res.json({ ok: true, data: { allow: true, mb: Number(u.voice_mb || 0) } });
 });
 
-// ---------- 通话结束：扣减 + 落通话明细（消耗流量/计费流量） ----------
+// 语音流量估算速率：无实测字节时的兜底（16kHz/16bit/单声道 ≈ 1.83 MB/min，取 2MB/min）
+const EST_MB_PER_MIN = 2;
+
+// ---------- 通话结束：按流量扣减 + 落通话明细 ----------
 router.post('/end', async (req, res) => {
   const { seconds, mistake_id, call_id } = req.body;
   const sec = Math.max(0, Math.min(7200, parseInt(seconds) || 0));
-  if (sec <= 0 && !call_id) return res.json({ ok: true, data: { deducted: 0 } });
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     // 锁用户行，防止并发 /end 重复扣费
     const [rows] = await conn.query(
-      'SELECT voice_minutes, voice_expire FROM users WHERE id=? FOR UPDATE', [req.user.id]
+      'SELECT voice_mb, voice_expire FROM users WHERE id=? FOR UPDATE', [req.user.id]
     );
     const u = rows[0];
     if (!u) { await conn.rollback(); return res.json({ ok: false, error: '用户不存在' }); }
 
     const now = new Date();
     const expired = u.voice_expire && new Date(u.voice_expire) < now;
-    if (expired || parseFloat(u.voice_minutes || 0) <= 0) {
+    if (expired || parseFloat(u.voice_mb || 0) <= 0) {
       await conn.rollback();
-      return res.json({ ok: true, data: { deducted: 0, minutes: 0, status: 'empty' } });
+      return res.json({ ok: true, data: { deducted: 0, mb: 0, status: 'empty' } });
     }
 
-    // 幂等：按 call_id 查已有明细（代理可能已先上报实测时长）
+    // 幂等：按 call_id 查已有明细（代理可能已先上报实测流量）
     let existing = null;
     if (call_id) {
       const [cs] = await conn.query('SELECT * FROM voice_calls WHERE call_id=? AND user_id=?', [call_id, req.user.id]);
       existing = cs[0] || null;
       // 该通话已计费过 → 不重复扣
-      if (existing && parseFloat(existing.billed_minutes || 0) > 0) {
+      if (existing && parseFloat(existing.billed_mb || 0) > 0) {
         await conn.rollback();
-        return res.json({ ok: true, data: { deducted: 0, minutes: Number(u.voice_minutes), status: 'already-billed' } });
+        return res.json({ ok: true, data: { deducted: 0, mb: Number(u.voice_mb), status: 'already-billed' } });
       }
     }
 
-    // 计费秒数：优先用代理实测（服务端可信），否则用客户端上报值
-    const billingSec = existing && parseInt(existing.seconds) > 0
-      ? Math.min(7200, parseInt(existing.seconds))
-      : sec;
-    if (billingSec <= 0) { await conn.rollback(); return res.json({ ok: true, data: { deducted: 0 } }); }
+    // 计费流量（MB）：优先用代理上报实测 total_bytes（后台流量统计口径），否则按通话秒数估算
+    let billingBytes = existing && parseInt(existing.total_bytes) > 0 ? parseInt(existing.total_bytes) : 0;
+    if (billingBytes <= 0 && sec > 0) {
+      billingBytes = Math.round(sec / 60 * EST_MB_PER_MIN * 1024 * 1024);
+    }
+    if (billingBytes <= 0) { await conn.rollback(); return res.json({ ok: true, data: { deducted: 0 } }); }
 
-    // 按秒扣：每 6 秒 = 0.1 分钟（保留 1 位小数向上取整）
-    const deductMinutes = Math.ceil(billingSec / 6) / 10;
-    const cur = parseFloat(u.voice_minutes || 0);
-    const left = Math.max(0, +(cur - deductMinutes).toFixed(1));
-    await conn.query('UPDATE users SET voice_minutes=? WHERE id=?', [left, req.user.id]);
+    // 按流量扣：bytes → MB（保留 3 位小数）
+    const deductMb = +(billingBytes / 1024 / 1024).toFixed(3);
+    const cur = parseFloat(u.voice_mb || 0);
+    const left = Math.max(0, +(cur - deductMb).toFixed(3));
+    await conn.query('UPDATE users SET voice_mb=? WHERE id=?', [left, req.user.id]);
 
-    // 落通话明细：有记录则补计费分钟与错题关联（仅当未计费），无则插入
+    // 落通话明细：有记录则补计费流量与错题关联（仅当未计费），无则插入
     const mid = parseInt(mistake_id) || null;
+    const billingSec = existing && parseInt(existing.seconds) > 0 ? Math.min(7200, parseInt(existing.seconds)) : sec;
     if (existing) {
       await conn.query(
-        'UPDATE voice_calls SET mistake_id=?, billed_minutes=? WHERE id=? AND billed_minutes=0',
-        [mid, deductMinutes, existing.id]
+        'UPDATE voice_calls SET mistake_id=?, billed_minutes=?, billed_mb=? WHERE id=? AND billed_mb=0',
+        [mid, Math.ceil(billingSec / 6) / 10, deductMb, existing.id]
       );
     } else {
       await conn.query(
-        'INSERT INTO voice_calls (call_id, user_id, mistake_id, seconds, billed_minutes) VALUES (?,?,?,?,?)',
-        [call_id || null, req.user.id, mid, billingSec, deductMinutes]
+        'INSERT INTO voice_calls (call_id, user_id, mistake_id, seconds, total_bytes, billed_minutes, billed_mb) VALUES (?,?,?,?,?,?,?)',
+        [call_id || null, req.user.id, mid, billingSec, billingBytes, Math.ceil(billingSec / 6) / 10, deductMb]
       );
     }
     await conn.commit();
-    res.json({ ok: true, data: { deducted: deductMinutes, minutes: Number(left) } });
+    res.json({ ok: true, data: { deducted: deductMb, mb: Number(left) } });
   } catch (e) {
     await conn.rollback();
     throw e;
@@ -229,16 +234,17 @@ router.post('/end', async (req, res) => {
 });
 
 // ---------- 工具 ----------
-async function grantVoiceMinutes(userId, minutes, durationDays) {
-  const [users] = await pool.query('SELECT voice_minutes, voice_expire FROM users WHERE id=?', [userId]);
+async function grantVoiceMb(userId, quotaMb, durationDays) {
+  const [users] = await pool.query('SELECT voice_mb, voice_expire FROM users WHERE id=?', [userId]);
   const u = users[0];
   const now = Date.now();
   const curExpire = (u.voice_expire && new Date(u.voice_expire) > now) ? new Date(u.voice_expire).getTime() : now;
   const newExpire = curExpire + durationDays * 24 * 3600 * 1000;
-  const newMinutes = parseFloat(u.voice_minutes || 0) + minutes;
-  await pool.query('UPDATE users SET voice_minutes=?, voice_expire=? WHERE id=?', [newMinutes, new Date(newExpire), userId]);
-  return { voice_minutes: newMinutes, voice_expire: new Date(newExpire) };
+  const newMb = parseFloat(u.voice_mb || 0) + parseFloat(quotaMb || 0);
+  await pool.query('UPDATE users SET voice_mb=?, voice_expire=? WHERE id=?', [newMb, new Date(newExpire), userId]);
+  return { voice_mb: newMb, voice_expire: new Date(newExpire) };
 }
 
 module.exports = router;
-module.exports.grantVoiceMinutes = grantVoiceMinutes;
+module.exports.grantVoiceMb = grantVoiceMb;
+module.exports.grantVoiceMinutes = grantVoiceMb; // 兼容旧引用

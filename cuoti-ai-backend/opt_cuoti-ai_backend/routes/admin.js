@@ -47,14 +47,14 @@ router.get('/users', async (req, res) => {
   if (keyword) { where += ' AND (username LIKE ? OR nickname LIKE ?)'; params.push(`%${keyword}%`, `%${keyword}%`); }
   const [total] = await pool.query(`SELECT COUNT(*) c FROM users WHERE ${where}`, params);
   const [rows] = await pool.query(
-    `SELECT id, username, nickname, grade, role, is_vip, vip_expire, voice_minutes, created_at FROM users WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    `SELECT id, username, nickname, grade, role, is_vip, vip_expire, voice_mb, created_at FROM users WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
     [...params, s, (p - 1) * s]
   );
   res.json({ ok: true, data: { list: rows, total: total[0].c, page: p, size: s } });
 });
 
 router.get('/users/:id', async (req, res) => {
-  const [rows] = await pool.query('SELECT id, username, nickname, grade, role, is_vip, vip_expire, voice_minutes, created_at FROM users WHERE id=?', [req.params.id]);
+  const [rows] = await pool.query('SELECT id, username, nickname, grade, role, is_vip, vip_expire, voice_mb, created_at FROM users WHERE id=?', [req.params.id]);
   if (!rows.length) return res.json({ ok: false, error: '用户不存在' });
   res.json({ ok: true, data: rows[0] });
 });
@@ -319,30 +319,32 @@ router.post('/voice/test', async (req, res) => {
   }
 });
 
-// ---------- 语音包管理 ----------
+// ---------- 语音包管理（流量模板：quota_mb 流量额度 + price 单价） ----------
 // 套餐列表
 router.get('/voice/plans', async (req, res) => {
   const [rows] = await pool.query('SELECT * FROM voice_plans ORDER BY price');
   res.json({ ok: true, data: rows });
 });
 
-// 新增套餐
+// 新增套餐（流量模板）
 router.post('/voice/plans', async (req, res) => {
-  const { plan, name, minutes, price, duration_days, desc_text, hot } = req.body;
-  if (!plan || !name || !minutes || !price) return res.json({ ok: false, error: '套餐标识/名称/分钟数/价格必填' });
+  const { plan, name, quota_mb, price, duration_days, desc_text, hot } = req.body;
+  if (!plan || !name || !quota_mb || !price) return res.json({ ok: false, error: '套餐标识/名称/流量额度/价格必填' });
+  const qmb = parseInt(quota_mb);
   const [r] = await pool.query(
-    'INSERT INTO voice_plans (plan, name, minutes, price, duration_days, desc_text, hot) VALUES (?,?,?,?,?,?,?)',
-    [plan, name, parseInt(minutes), parseFloat(price), parseInt(duration_days) || 30, desc_text || '', hot ? 1 : 0]
+    'INSERT INTO voice_plans (plan, name, minutes, quota_mb, price, duration_days, desc_text, hot) VALUES (?,?,?,?,?,?,?,?)',
+    [plan, name, qmb, qmb, parseFloat(price), parseInt(duration_days) || 30, desc_text || '', hot ? 1 : 0]
   );
   res.json({ ok: true, data: { id: r.insertId } });
 });
 
 // 更新套餐
 router.put('/voice/plans/:id', async (req, res) => {
-  const { plan, name, minutes, price, duration_days, desc_text, hot, is_active } = req.body;
+  const { plan, name, quota_mb, price, duration_days, desc_text, hot, is_active } = req.body;
+  const qmb = parseInt(quota_mb || 0);
   await pool.query(
-    'UPDATE voice_plans SET plan=?, name=?, minutes=?, price=?, duration_days=?, desc_text=?, hot=?, is_active=? WHERE id=?',
-    [plan, name, parseInt(minutes), parseFloat(price), parseInt(duration_days) || 30, desc_text || '', hot ? 1 : 0, is_active ? 1 : 0, req.params.id]
+    'UPDATE voice_plans SET plan=?, name=?, minutes=?, quota_mb=?, price=?, duration_days=?, desc_text=?, hot=?, is_active=? WHERE id=?',
+    [plan, name, qmb, qmb, parseFloat(price), parseInt(duration_days) || 30, desc_text || '', hot ? 1 : 0, is_active ? 1 : 0, req.params.id]
   );
   res.json({ ok: true });
 });
@@ -374,50 +376,50 @@ router.get('/voice/users', async (req, res) => {
   if (keyword) { where += ' AND (username LIKE ? OR nickname LIKE ?)'; params.push(`%${keyword}%`, `%${keyword}%`); }
   const [total] = await pool.query(`SELECT COUNT(*) c FROM users WHERE ${where}`, params);
   const [rows] = await pool.query(
-    `SELECT id, username, nickname, voice_minutes, voice_expire, created_at FROM users WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    `SELECT id, username, nickname, voice_mb, voice_expire, created_at FROM users WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
     [...params, s, (p - 1) * s]
   );
   res.json({ ok: true, data: { list: rows, total: total[0].c, page: p, size: s } });
 });
 
-// 调整单个用户语音包（增减余额 / 延期）
+// 调整单个用户语音包（增减流量余额 / 延期），voice_mb 支持绝对值/增量
 router.put('/voice/users/:id', async (req, res) => {
-  const { voice_minutes, voice_expire } = req.body;
-  const [users] = await pool.query('SELECT voice_minutes, voice_expire FROM users WHERE id=?', [req.params.id]);
+  const { voice_mb, voice_expire } = req.body;
+  const [users] = await pool.query('SELECT voice_mb, voice_expire FROM users WHERE id=?', [req.params.id]);
   if (!users.length) return res.json({ ok: false, error: '用户不存在' });
   const u = users[0];
   // MySQL DECIMAL 读出为字符串，必须 parseFloat 再运算，否则 + 触发字符串拼接
-  let newMinutes = parseFloat(u.voice_minutes || 0);
+  let newMb = parseFloat(u.voice_mb || 0);
   let newExpire = u.voice_expire || null;
-  // voice_minutes 支持两种语义：绝对值（>=0 时直接设置）或增量（delta 前缀 +/-）
-  if (typeof voice_minutes === 'number') {
-    if (voice_minutes >= 0) newMinutes = voice_minutes;
-    else newMinutes = Math.max(0, newMinutes + voice_minutes);
-  } else if (typeof voice_minutes === 'string' && (voice_minutes.startsWith('+') || voice_minutes.startsWith('-'))) {
-    newMinutes = Math.max(0, newMinutes + (parseInt(voice_minutes, 10) || 0));
+  // voice_mb 支持两种语义：绝对值（>=0 时直接设置）或增量（delta 前缀 +/-）
+  if (typeof voice_mb === 'number') {
+    if (voice_mb >= 0) newMb = voice_mb;
+    else newMb = Math.max(0, newMb + voice_mb);
+  } else if (typeof voice_mb === 'string' && (voice_mb.startsWith('+') || voice_mb.startsWith('-'))) {
+    newMb = Math.max(0, newMb + (parseFloat(voice_mb, 10) || 0));
   }
   // NaN 防护：解析失败时回退原余额，避免拼出 Unknown column 'NaN'
-  if (Number.isNaN(newMinutes)) newMinutes = parseFloat(u.voice_minutes || 0) || 0;
-  // 保留 1 位小数
-  newMinutes = Math.round(newMinutes * 10) / 10;
+  if (Number.isNaN(newMb)) newMb = parseFloat(u.voice_mb || 0) || 0;
+  // 保留 3 位小数
+  newMb = Math.round(newMb * 1000) / 1000;
   if (voice_expire !== undefined) newExpire = voice_expire || null;
-  await pool.query('UPDATE users SET voice_minutes=?, voice_expire=? WHERE id=?', [newMinutes, newExpire, req.params.id]);
-  res.json({ ok: true, data: { voice_minutes: newMinutes, voice_expire: newExpire } });
+  await pool.query('UPDATE users SET voice_mb=?, voice_expire=? WHERE id=?', [newMb, newExpire, req.params.id]);
+  res.json({ ok: true, data: { voice_mb: newMb, voice_expire: newExpire } });
 });
 
-// ---------- 流量统计：消耗流量(时长)/计费流量(扣减分钟)/实际流量(字节) ----------
+// ---------- 流量统计：通话时长(分)/计费流量(扣减MB)/实际流量(字节MB) ----------
 router.get('/voice/stats', async (req, res) => {
   const [today] = await pool.query(
     `SELECT COUNT(*) calls,
             COALESCE(SUM(seconds),0) seconds,
-            COALESCE(SUM(billed_minutes),0) billed,
+            COALESCE(SUM(billed_mb),0) billed,
             COALESCE(SUM(total_bytes),0) bytes
      FROM voice_calls WHERE created_at >= CURDATE()`
   );
   const [total] = await pool.query(
     `SELECT COUNT(*) calls,
             COALESCE(SUM(seconds),0) seconds,
-            COALESCE(SUM(billed_minutes),0) billed,
+            COALESCE(SUM(billed_mb),0) billed,
             COALESCE(SUM(total_bytes),0) bytes
      FROM voice_calls`
   );
@@ -425,14 +427,14 @@ router.get('/voice/stats', async (req, res) => {
   res.json({ ok: true, data: {
     today: {
       calls: today[0].calls,
-      consume_minutes: Math.round(Number(today[0].seconds) / 60 * 10) / 10,   // 消耗流量
-      billed_minutes: Number(today[0].billed),                                  // 计费流量
+      consume_minutes: Math.round(Number(today[0].seconds) / 60 * 10) / 10,   // 通话时长
+      billed_mb: Number(today[0].billed),                                      // 计费流量（扣减MB）
       actual_mb: mb(today[0].bytes)                                             // 实际流量
     },
     total: {
       calls: total[0].calls,
       consume_minutes: Math.round(Number(total[0].seconds) / 60 * 10) / 10,
-      billed_minutes: Number(total[0].billed),
+      billed_mb: Number(total[0].billed),
       actual_mb: mb(total[0].bytes)
     }
   }});
@@ -448,7 +450,7 @@ router.get('/voice/calls', async (req, res) => {
   if (days) { where += ' AND c.created_at >= NOW() - INTERVAL ? DAY'; params.push(parseInt(days)); }
   const [total] = await pool.query(`SELECT COUNT(*) c FROM voice_calls c LEFT JOIN users u ON c.user_id=u.id WHERE ${where}`, params);
   const [rows] = await pool.query(
-    `SELECT c.id, c.user_id, u.username, u.nickname, c.mistake_id, c.seconds, c.billed_minutes,
+    `SELECT c.id, c.user_id, u.username, u.nickname, c.mistake_id, c.seconds, c.billed_mb,
             c.up_bytes, c.down_bytes, c.total_bytes, c.created_at
      FROM voice_calls c LEFT JOIN users u ON c.user_id=u.id
      WHERE ${where} ORDER BY c.id DESC LIMIT ? OFFSET ?`,
@@ -456,7 +458,7 @@ router.get('/voice/calls', async (req, res) => {
   );
   const mb = (b) => Math.round((Number(b) || 0) / 1024 / 1024 * 100) / 100;
   res.json({ ok: true, data: {
-    list: rows.map(r => ({ ...r, actual_mb: mb(r.total_bytes), up_mb: mb(r.up_bytes), down_mb: mb(r.down_bytes) })),
+    list: rows.map(r => ({ ...r, billed_mb: Number(r.billed_mb || 0), actual_mb: mb(r.total_bytes), up_mb: mb(r.up_bytes), down_mb: mb(r.down_bytes) })),
     total: total[0].c, page: p, size: s
   }});
 });
@@ -619,6 +621,134 @@ router.put('/vpay/config', async (req, res) => {
   };
   if (!cfg.appkey) return res.json({ ok: false, error: '现网AppKey 必填（重填时保留****）' });
   await vpay.setConfig(cfg);
+  res.json({ ok: true });
+});
+
+// ================= 知识大纲管理（管理后台维护；小程序端只按年级匹配展示） =================
+
+// 科目+年级概览（后台筛选用）
+router.get('/knowledge/subjects', async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT kp.subject, kp.grade, COUNT(DISTINCT kp.id) ch_count, COUNT(k2.id) kp_count
+     FROM knowledge_points kp
+     LEFT JOIN knowledge_points k2 ON k2.parent_id = kp.id AND k2.level=2
+     WHERE kp.level=1
+     GROUP BY kp.subject, kp.grade
+     ORDER BY kp.subject, kp.grade`
+  );
+  res.json({ ok: true, data: rows });
+});
+
+// 章节列表（按科目/年级）
+router.get('/knowledge/chapters', async (req, res) => {
+  const { subject, grade } = req.query;
+  let where = 'level=1';
+  const params = [];
+  if (subject) { where += ' AND subject=?'; params.push(subject); }
+  if (grade) { where += ' AND grade=?'; params.push(grade); }
+  const [rows] = await pool.query(
+    `SELECT kp.*, (SELECT COUNT(*) FROM knowledge_points k2 WHERE k2.parent_id=kp.id) kp_count
+     FROM knowledge_points kp WHERE ${where} ORDER BY sort, id`,
+    params
+  );
+  res.json({ ok: true, data: rows });
+});
+
+// 新增章节
+router.post('/knowledge/chapters', async (req, res) => {
+  const { subject, grade, name } = req.body;
+  if (!subject || !grade || !name) return res.json({ ok: false, error: '科目/年级/章节名必填' });
+  const [[max]] = await pool.query(
+    'SELECT COALESCE(MAX(sort),0) m FROM knowledge_points WHERE subject=? AND grade=? AND level=1',
+    [subject, grade]
+  );
+  const [r] = await pool.query(
+    'INSERT INTO knowledge_points (subject, grade, name, parent_id, level, sort) VALUES (?,?,?,0,1,?)',
+    [subject, grade, name, (max.m || 0) + 1]
+  );
+  res.json({ ok: true, data: { id: r.insertId } });
+});
+
+// 修改章节
+router.put('/knowledge/chapters/:id', async (req, res) => {
+  const { name, grade, subject } = req.body;
+  await pool.query('UPDATE knowledge_points SET name=?, grade=?, subject=? WHERE id=? AND level=1',
+    [name, grade, subject, req.params.id]);
+  res.json({ ok: true });
+});
+
+// 删除章节（级联删知识点 + 用户掌握记录）
+router.delete('/knowledge/chapters/:id', async (req, res) => {
+  const chId = parseInt(req.params.id);
+  await pool.query('DELETE FROM user_knowledge WHERE kp_id IN (SELECT id FROM knowledge_points WHERE parent_id=?)', [chId]);
+  await pool.query('DELETE FROM knowledge_points WHERE parent_id=?', [chId]);
+  await pool.query('DELETE FROM knowledge_points WHERE id=?', [chId]);
+  res.json({ ok: true });
+});
+
+// 章节下的知识点列表
+router.get('/knowledge/kps', async (req, res) => {
+  const { chapter_id } = req.query;
+  if (!chapter_id) return res.json({ ok: false, error: '缺少章节ID' });
+  const [rows] = await pool.query(
+    'SELECT id, name, sort FROM knowledge_points WHERE parent_id=? ORDER BY sort, id', [parseInt(chapter_id)]
+  );
+  res.json({ ok: true, data: rows });
+});
+
+// 新增知识点
+router.post('/knowledge/kps', async (req, res) => {
+  const { chapter_id, name } = req.body;
+  if (!chapter_id || !name) return res.json({ ok: false, error: '章节ID/知识点名必填' });
+  const [ch] = await pool.query('SELECT subject, grade FROM knowledge_points WHERE id=? AND level=1', [parseInt(chapter_id)]);
+  if (!ch.length) return res.json({ ok: false, error: '章节不存在' });
+  const [[max]] = await pool.query('SELECT COALESCE(MAX(sort),0) m FROM knowledge_points WHERE parent_id=?', [parseInt(chapter_id)]);
+  const [r] = await pool.query(
+    'INSERT INTO knowledge_points (subject, grade, name, parent_id, level, sort) VALUES (?,?,?,?,2,?)',
+    [ch[0].subject, ch[0].grade, name, parseInt(chapter_id), (max.m || 0) + 1]
+  );
+  res.json({ ok: true, data: { id: r.insertId } });
+});
+
+// 批量新增知识点（一个章节一次贴多行）
+router.post('/knowledge/kps/batch', async (req, res) => {
+  const { chapter_id, names } = req.body;
+  if (!chapter_id || !Array.isArray(names) || !names.length) return res.json({ ok: false, error: '章节ID/知识点列表必填' });
+  const [ch] = await pool.query('SELECT subject, grade FROM knowledge_points WHERE id=? AND level=1', [parseInt(chapter_id)]);
+  if (!ch.length) return res.json({ ok: false, error: '章节不存在' });
+  const [[max]] = await pool.query('SELECT COALESCE(MAX(sort),0) m FROM knowledge_points WHERE parent_id=?', [parseInt(chapter_id)]);
+  let sort = (max.m || 0);
+  let added = 0;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const n of names) {
+      const name = String(n || '').trim();
+      if (!name) continue;
+      sort++;
+      await conn.query(
+        'INSERT INTO knowledge_points (subject, grade, name, parent_id, level, sort) VALUES (?,?,?,?,2,?)',
+        [ch[0].subject, ch[0].grade, name, parseInt(chapter_id), sort]
+      );
+      added++;
+    }
+    await conn.commit();
+  } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+  res.json({ ok: true, data: { added } });
+});
+
+// 修改知识点
+router.put('/knowledge/kps/:id', async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.json({ ok: false, error: '知识点名不能为空' });
+  await pool.query('UPDATE knowledge_points SET name=? WHERE id=? AND level=2', [name, req.params.id]);
+  res.json({ ok: true });
+});
+
+// 删除知识点（级联删用户掌握记录）
+router.delete('/knowledge/kps/:id', async (req, res) => {
+  await pool.query('DELETE FROM user_knowledge WHERE kp_id=?', [req.params.id]);
+  await pool.query('DELETE FROM knowledge_points WHERE id=? AND level=2', [req.params.id]);
   res.json({ ok: true });
 });
 

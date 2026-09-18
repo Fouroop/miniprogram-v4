@@ -12,7 +12,7 @@ async function renderVp(page = 1) {
       <button class="btn ${vpTab==='traffic'?'btn-primary':''}" onclick="switchVpTab('traffic')">流量统计</button>
       <button class="btn ${vpTab==='pay'?'btn-primary':''}" onclick="switchVpTab('pay')">支付配置</button>
       <span style="flex:1"></span>
-      ${vpTab==='plans' ? '<button class="btn btn-primary" onclick="editVpPlan()">+ 新增套餐</button>' : ''}
+      ${vpTab==='plans' ? '<button class="btn btn-primary" onclick="addVpPlan()">+ 新增套餐</button>' : ''}
     </div>
     <div id="vpTable"></div>
   </div>`;
@@ -24,21 +24,22 @@ async function renderVp(page = 1) {
 }
 function switchVpTab(t) { vpTab = t; renderVp(1); }
 
-/* ---------- 套餐管理 ---------- */
+/* ---------- 套餐管理（流量模板：quota_mb 流量额度 + 单价 元/MB） ---------- */
 async function loadVpPlans(page) {
   const r = await api('GET', `/admin/voice/plans?page=${page}`);
   if (!r.ok) { document.getElementById('vpTable').innerHTML = '<div class="empty">加载失败</div>'; return; }
   const list = r.data || [];
+  window.__vpPlans = list;
   const rows = list.map(p => {
-    const pricePerMin = p.minutes > 0 ? (parseFloat(p.price) / p.minutes) : 0;
+    const unit = p.quota_mb > 0 ? (parseFloat(p.price) / p.quota_mb) : 0;
     return `
     <tr>
       <td>${p.id}</td>
       <td><code>${esc(p.plan)}</code></td>
       <td>${esc(p.name)}</td>
-      <td>${p.minutes} 分钟</td>
+      <td>${p.quota_mb} MB</td>
       <td>¥${p.price}</td>
-      <td><b>¥${pricePerMin.toFixed(3)}/分钟</b></td>
+      <td><b>¥${unit.toFixed(4)}/MB</b></td>
       <td>${p.duration_days} 天</td>
       <td>${esc(p.desc_text || '-')}</td>
       <td>${p.hot ? '<span class="tag orange">推荐</span>' : ''} ${p.is_active ? '<span class="tag green">启用</span>' : '<span class="tag">停用</span>'}</td>
@@ -50,38 +51,64 @@ async function loadVpPlans(page) {
   }).join('');
   document.getElementById('vpTable').innerHTML = `
     <div class="table-wrap"><table>
-      <thead><tr><th>ID</th><th>标识</th><th>名称</th><th>分钟数</th><th>价格</th><th>单价</th><th>有效期</th><th>说明</th><th>状态</th><th>操作</th></tr></thead>
+      <thead><tr><th>ID</th><th>标识</th><th>名称</th><th>流量额度</th><th>价格</th><th>单价</th><th>有效期</th><th>说明</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="10" class="empty">暂无套餐</td></tbody>'}
     </table></div>`;
 }
 
-function editVpPlan(id) {
-  const p = id ? null : {};
-  if (id) {
-    // 从当前列表找
-    const rows = document.querySelectorAll('#vpTable tbody tr');
-    return; // 走 API 拉取
-  }
-  openModal('新增语音包套餐', `
+function addVpPlan() {
+  openModal('新增流量模板（语音包套餐）', `
     <div class="form-row"><label>标识（英文，唯一）</label><input id="vpPlan" placeholder="如 monthly"></div>
     <div class="form-row"><label>名称</label><input id="vpName" placeholder="如 月付语音包"></div>
-    <div class="form-row"><label>分钟数</label><input id="vpMinutes" type="number" placeholder="如 300"></div>
+    <div class="form-row"><label>流量额度（MB）</label><input id="vpQuota" type="number" placeholder="如 600"></div>
     <div class="form-row"><label>价格（元）</label><input id="vpPrice" type="number" step="0.1" placeholder="如 39"></div>
     <div class="form-row"><label>有效期（天）</label><input id="vpDays" type="number" value="30"></div>
     <div class="form-row"><label>说明</label><input id="vpDesc" placeholder="一句话说明"></div>
     <div class="form-row"><label>推荐</label><select id="vpHot"><option value="0">否</option><option value="1">是</option></select></div>
+    <div class="form-tip">单价 = 价格 ÷ 流量额度，自动计算（元/MB）</div>
   `, async () => {
     const r = await api('POST', '/admin/voice/plans', {
       plan: document.getElementById('vpPlan').value.trim(),
       name: document.getElementById('vpName').value.trim(),
-      minutes: parseInt(document.getElementById('vpMinutes').value),
+      quota_mb: parseInt(document.getElementById('vpQuota').value),
       price: parseFloat(document.getElementById('vpPrice').value),
       duration_days: parseInt(document.getElementById('vpDays').value),
       desc_text: document.getElementById('vpDesc').value.trim(),
       hot: parseInt(document.getElementById('vpHot').value)
     });
     if (!r.ok) { toast(r.error); return false; }
-    toast('套餐已新增');
+    toast('流量模板已新增');
+    renderVp(vpPage);
+  });
+}
+
+function editVpPlan(id) {
+  if (!id) { return; }
+  const p = (window.__vpPlans || []).find((x) => x.id === id);
+  if (!p) { toast('套餐不存在，请刷新'); return; }
+  openModal('编辑流量模板（语音包套餐）', `
+    <div class="form-row"><label>标识（英文，唯一）</label><input id="vpPlan" value="${esc(p.plan)}"></div>
+    <div class="form-row"><label>名称</label><input id="vpName" value="${esc(p.name)}"></div>
+    <div class="form-row"><label>流量额度（MB）</label><input id="vpQuota" type="number" value="${p.quota_mb || p.minutes || 0}"></div>
+    <div class="form-row"><label>价格（元）</label><input id="vpPrice" type="number" step="0.1" value="${p.price}"></div>
+    <div class="form-row"><label>有效期（天）</label><input id="vpDays" type="number" value="${p.duration_days || 30}"></div>
+    <div class="form-row"><label>说明</label><input id="vpDesc" value="${esc(p.desc_text || '')}"></div>
+    <div class="form-row"><label>推荐</label><select id="vpHot"><option value="0" ${p.hot?'':'selected'}>否</option><option value="1" ${p.hot?'selected':''}>是</option></select></div>
+    <div class="form-row"><label>启用</label><select id="vpActive"><option value="1" ${p.is_active?'selected':''}>启用</option><option value="0" ${p.is_active?'':'selected'}>停用</option></select></div>
+    <div class="form-tip">单价 = 价格 ÷ 流量额度，自动计算（元/MB）</div>
+  `, async () => {
+    const r = await api('PUT', `/admin/voice/plans/${id}`, {
+      plan: document.getElementById('vpPlan').value.trim(),
+      name: document.getElementById('vpName').value.trim(),
+      quota_mb: parseInt(document.getElementById('vpQuota').value),
+      price: parseFloat(document.getElementById('vpPrice').value),
+      duration_days: parseInt(document.getElementById('vpDays').value),
+      desc_text: document.getElementById('vpDesc').value.trim(),
+      hot: parseInt(document.getElementById('vpHot').value),
+      is_active: parseInt(document.getElementById('vpActive').value)
+    });
+    if (!r.ok) { toast(r.error); return false; }
+    toast('已保存');
     renderVp(vpPage);
   });
 }
@@ -106,10 +133,10 @@ async function loadVpUsers(page) {
       <td>${u.id}</td>
       <td>${esc(u.username)}</td>
       <td>${esc(u.nickname || '-')}</td>
-      <td><b style="color:#8B1E1A">${expired ? 0 : (u.voice_minutes || 0)} 分钟</b></td>
+      <td><b style="color:#8B1E1A">${expired ? 0 : (u.voice_mb || 0)} MB</b></td>
       <td>${u.voice_expire ? new Date(u.voice_expire).toLocaleDateString() + (expired ? ' <span class="tag">已过期</span>' : '') : '-'}</td>
       <td>
-        <button class="btn btn-sm" onclick="editVpUser(${u.id}, '${esc(u.username)}', ${u.voice_minutes||0}, '${u.voice_expire ? new Date(u.voice_expire).toISOString().slice(0,16) : ''}')">调整</button>
+        <button class="btn btn-sm" onclick="editVpUser(${u.id}, '${esc(u.username)}', ${u.voice_mb||0}, '${u.voice_expire ? new Date(u.voice_expire).toISOString().slice(0,16) : ''}')">调整</button>
       </td>
     </tr>`;
   }).join('');
@@ -126,15 +153,15 @@ async function loadVpUsers(page) {
 }
 function gotoVpUsers(p) { loadVpUsers(p); }
 
-function editVpUser(id, username, minutes, expire) {
+function editVpUser(id, username, mb, expire) {
   openModal(`调整语音包：${username}`, `
-    <div class="form-row"><label>语音包余量（分钟）</label><input id="vuMin" type="number" value="${minutes}"></div>
+    <div class="form-row"><label>语音包余量（MB）</label><input id="vuMin" type="number" step="0.1" value="${mb}"></div>
     <div class="form-row"><label>有效期至</label><input id="vuExpire" type="datetime-local" value="${expire}"></div>
-    <div class="form-tip">余量填正数=直接设为该值；负数=扣减（如 -10）；到期时间留空=不限</div>
+    <div class="form-tip">余量填正数=直接设为该值；负数=扣减（如 -100）；到期时间留空=不限</div>
   `, async () => {
     const minVal = document.getElementById('vuMin').value.trim();
     const r = await api('PUT', `/admin/voice/users/${id}`, {
-      voice_minutes: minVal.startsWith('-') ? parseInt(minVal) : (minVal === '' ? null : parseInt(minVal)),
+      voice_mb: minVal.startsWith('-') ? parseFloat(minVal) : (minVal === '' ? null : parseFloat(minVal)),
       voice_expire: document.getElementById('vuExpire').value || null
     });
     if (!r.ok) { toast(r.error); return false; }
@@ -154,14 +181,14 @@ async function loadVpOrders(page) {
       <td>${o.id}</td>
       <td>${esc(o.username || '用户#'+o.user_id)}</td>
       <td>${esc(o.plan_name || o.plan)}</td>
-      <td>${o.minutes} 分钟</td>
+      <td>${o.minutes} MB</td>
       <td>¥${o.amount}</td>
       <td><span class="tag ${o.status==='paid'?'green':'orange'}">${o.status}</span></td>
       <td>${new Date(o.created_at).toLocaleString()}</td>
     </tr>`).join('');
   document.getElementById('vpTable').innerHTML = `
     <div class="table-wrap"><table>
-      <thead><tr><th>ID</th><th>用户</th><th>套餐</th><th>分钟数</th><th>金额</th><th>状态</th><th>时间</th></tr></thead>
+      <thead><tr><th>ID</th><th>用户</th><th>套餐</th><th>流量额度</th><th>金额</th><th>状态</th><th>时间</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="empty">暂无订单</td></tbody>'}
     </table></div>
     ${paginHtml(total, page, size, 'gotoVpOrders')}`;
@@ -185,7 +212,7 @@ async function renderTraffic() {
   const html = `
     <div class="traffic-grid">
       ${card('消耗流量（通话时长）', st.today.consume_minutes ?? 0, st.total.consume_minutes ?? 0, '分钟', 'sb-red')}
-      ${card('计费流量（扣减分钟）', st.today.billed_minutes ?? 0, st.total.billed_minutes ?? 0, '分钟', 'sb-amber')}
+      ${card('计费流量（扣减MB）', st.today.billed_mb ?? 0, st.total.billed_mb ?? 0, 'MB', 'sb-amber')}
       ${card('实际流量（音频数据）', st.today.actual_mb ?? 0, st.total.actual_mb ?? 0, 'MB', 'sb-blue')}
       ${card('通话次数', st.today.calls ?? 0, st.total.calls ?? 0, '次', 'sb-green')}
     </div>
@@ -209,7 +236,7 @@ function renderCalls(data) {
       <td>${esc(r.username || '用户#'+r.user_id)}</td>
       <td>${fmtTime(r.created_at)}</td>
       <td>${r.seconds} 秒</td>
-      <td><b style="color:#C98A2D">${r.billed_minutes} 分钟</b></td>
+      <td><b style="color:#C98A2D">${r.billed_mb ?? 0} MB</b></td>
       <td>${(r.actual_mb || 0)} MB <span class="tag" style="font-size:12px">↑${r.up_mb||0}/↓${r.down_mb||0}</span></td>
       <td>${r.mistake_id ? '<span class="tag green">带题</span>' : '<span class="tag">自由</span>'}</td>
     </tr>`).join('');

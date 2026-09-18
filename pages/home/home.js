@@ -75,7 +75,7 @@ Page({
     if (this.data.voiceBal.status !== 'active') {
       wx.showModal({
         title: '需要开通语音包',
-        content: '打电话辅导按分钟计费，请先开通语音包（单次/月付/年付三档）。',
+        content: '打电话辅导按流量计费，请先开通语音包（单次/月付/年付三档）。',
         confirmText: '去开通',
         success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/me/me' }); }
       });
@@ -90,7 +90,7 @@ Page({
     if (this.data.voiceBal.status !== 'active') {
       wx.showModal({
         title: '需要开通语音包',
-        content: '打电话辅导按分钟计费，请先开通语音包。',
+        content: '打电话辅导按流量计费，请先开通语音包。',
         confirmText: '去开通',
         success: (r) => { if (r.confirm) wx.switchTab({ url: '/pages/me/me' }); }
       });

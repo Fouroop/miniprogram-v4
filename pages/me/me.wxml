@@ -19,9 +19,9 @@
   <view class="voice-balance-card">
     <view class="vbc-head">
       <view class="vbc-title">语音包</view>
-      <view class="vbc-tip">按分钟扣减，AI 语音通话讲题</view>
+      <view class="vbc-tip">按流量扣减，AI 语音通话讲题</view>
     </view>
-    <view class="vbc-num">{{voiceBal.minutes}}<text class="vbc-unit">分钟</text></view>
+    <view class="vbc-num">{{voiceBal.minutes}}<text class="vbc-unit">MB</text></view>
     <view class="vbc-sub" wx:if="{{voiceBal.status === 'active'}}">有效期至 {{voiceBal.expireText}}</view>
     <view class="vbc-sub warn" wx:elif="{{voiceBal.status === 'expired'}}">已过期，请续购语音包</view>
     <view class="vbc-sub" wx:else>暂无语音包，开通后可用 AI 语音通话讲题</view>
@@ -35,9 +35,9 @@
       <view class="pc-name">{{item.name}}</view>
       <view class="pc-price">¥{{item.price}}<text class="pc-unit"> / {{item.duration_days >= 365 ? '年' : (item.duration_days >= 30 ? '月' : '次')}}</text></view>
     </view>
-    <view class="pc-note">{{item.desc_text}} · 含 {{item.minutes}} 分钟 · {{item.duration_days}} 天有效</view>
+    <view class="pc-note">{{item.desc_text}} · 含 {{item.minutes}} MB · {{item.duration_days}} 天有效</view>
   </view>
-  <view class="plan-manual-tip" wx:if="{{plans.length}}">点击套餐 → 添加管理员微信 → 申请开通，管理员确认后发放分钟数</view>
+  <view class="plan-manual-tip" wx:if="{{plans.length}}">点击套餐 → 添加管理员微信 → 申请开通，管理员确认后发放流量</view>
 
   <!-- 设置 -->
   <view class="card">

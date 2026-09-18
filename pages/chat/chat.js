@@ -141,7 +141,7 @@ Page({
         self.setData({ headStatusText: '' });
         wx.showModal({
           title: '需要开通语音包',
-          content: '打电话辅导按分钟计费，请先开通语音包（单次/月付/年付三档）。',
+          content: '打电话辅导按流量计费，请先开通语音包（单次/月付/年付三档）。',
           confirmText: '去开通',
           cancelText: '先用文字',
           success: (r) => {
