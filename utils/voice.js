@@ -51,6 +51,7 @@ function createStreamingPlayer(opts) {
   var writePos = 0; // 已写入 AudioContext 的样本位置
   var startTime = 0; // 播放起始 AudioContext 时间
   var scheduledSources = []; // 待播放的 source 节点
+  var muted = false; // 静音缓冲：只进缓冲不播放，等用户手势解锁（unmute）后从头播放
 
   function ensureAc() {
     if (!ac || ac.state === 'closed') {
@@ -162,6 +163,9 @@ function createStreamingPlayer(opts) {
 
       if (opts && opts.onChunk) opts.onChunk(sampleBuf.length);
 
+      // 静音缓冲模式（等待用户轻触解锁）：音频只进缓冲不启动播放，unmute 后从头播放
+      if (muted) return;
+
       // 未开始播放 + 积累够了 → 先尝试解锁 AudioContext（iOS 无手势创建时为 suspended），再启动
       if (!started && sampleBuf.length >= STREAM_START_SAMPLES) {
         startWhenReady();
@@ -171,8 +175,8 @@ function createStreamingPlayer(opts) {
       }
     },
     flush() {
-      // 音频流结束信号：确保播放已启动（先解锁再启动）
-      if (!started && sampleBuf.length > 0) startWhenReady();
+      // 音频流结束信号：确保播放已启动（静音缓冲模式下等待用户轻触解锁后再播）
+      if (!started && !muted && sampleBuf.length > 0) startWhenReady();
     },
     interrupt() {
       // 插话/打断：立即停止正在播放的 AI 音频并丢弃待播缓冲（保留 AudioContext 复用）
@@ -192,6 +196,11 @@ function createStreamingPlayer(opts) {
         try { a.resume(); } catch (e) {}
       }
       return a.state;
+    },
+    setMuted(v) {
+      muted = !!v;
+      // 解除静音：缓冲的 AI 语音从头开始播放
+      if (!muted && !started && sampleBuf.length > 0) startWhenReady();
     },
     retry() {
       // iOS AudioContext 解锁后重试（覆盖"已启动但 source 挂在 suspended 时间线"的场景）
@@ -315,8 +324,9 @@ class VoiceCall {
     this._reconnects = 0;
     this._closedByUser = false;
     this._greeted = false;
-    // 首次进入只显示文字：开场白音频静音（丢弃不播），第一轮 response.done 后自动恢复
-    this._dropAudio = !!(opts && opts.muteGreeting);
+    // 静音缓冲模式：进入页面自动连接后只显示文字，AI 语音先缓冲不播；
+    // 用户首次轻触屏幕（setMuteUntilTouch(false)）后从头播放；之后问答正常流式出声
+    this._muteUntilTouch = !!(opts && opts.muteUntilTouch);
     this.opening = true;
     this._emit('onStatus', '正在连接 AI 导师…', false);
 
@@ -356,6 +366,7 @@ class VoiceCall {
         }
       }
     });
+    if (this._muteUntilTouch) this.player.setMuted(true);
 
     const tk = wx.getStorageSync('token') || '';
     const sep = proxyUrl.indexOf('?') >= 0 ? '&' : '?';
@@ -707,6 +718,12 @@ class VoiceCall {
     this._micPaused = true;
     this.pcmCache = new Uint8Array(0);
     console.log('[VoiceCall] AI 播报中，麦克风静音（防回声）；按住 MIC 可插话');
+  }
+
+  // 解除/启用静音缓冲（进入页面第一轮 AI 语音等待用户轻触后播放）
+  setMuteUntilTouch(v) {
+    this._muteUntilTouch = !!v;
+    if (this.player) this.player.setMuted(this._muteUntilTouch);
   }
 
   // 按住 MIC（PTT）：清空服务端缓冲（丢弃静音帧）、停止 AI 播放、启动录音器采集上传

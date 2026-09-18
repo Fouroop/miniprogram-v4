@@ -207,6 +207,17 @@
   transform: scale(1.02);
 }
 .ptt-btn.start { background: #3B6EA5; box-shadow: 0 6rpx 24rpx rgba(59, 110, 165, 0.35); }
+.ptt-btn.waiting {
+  background: #A8B8C8;
+  box-shadow: none;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  animation: pttBlink 1.6s ease-in-out infinite;
+}
+@keyframes pttBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
 .ptt-btn:active { opacity: 0.85; }
 
 /* 通话后掌握标记面板 */

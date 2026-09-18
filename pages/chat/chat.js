@@ -34,6 +34,9 @@ Page({
 
     // 语音通话状态（按住说话 PTT）
     callOn: false,
+    // 第一轮开场白：greetingWaiting=等待轻触播放语音；firstReplyDone=第一轮已说完（此后 PTT 常显可打断）
+    greetingWaiting: false,
+    firstReplyDone: false,
     connected: false,       // 会话已接通
     callListening: false,   // 麦克风收音中
     micPaused: false,       // 用户按住收音中
@@ -61,7 +64,7 @@ Page({
     // 恢复本地保存的聊天记录（重新进入页面不丢）
     this._restoreHistory();
 
-    // 从题库"问这道题"进入：与错题辅导一致——带上题干、自动语音连接、AI 开口讲解
+    // 从题库"问这道题"进入：与错题辅导一致——带上题干，自动连接、AI 文字先出（语音等轻触播放）
     const seed = wx.getStorageSync('chat_seed');
     if (seed && seed.stem) {
       wx.removeStorageSync('chat_seed');
@@ -92,7 +95,7 @@ Page({
         this._autoStartVoice();
       }).catch(() => { this._autoStartVoice(); });
     } else {
-      // 自由提问：直接自动连接
+      // 自由提问：自动连接
       this._autoStartVoice();
     }
   },
@@ -139,10 +142,12 @@ Page({
 
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
-  // 触摸页面：解锁 AudioContext（iOS 自动播放限制），解锁完成后重放 AI 未播出的声音
-  // 每次都尝试（resume/retry 幂等），首次解锁失败时后续触摸仍可触发
+  // 触摸页面：首次触摸解除静音缓冲（播放 AI 已说的话）+ 解锁 AudioContext
+  // 每次都尝试（幂等）：后续触摸仅解锁/重放，不影响已开始的播放
   onPageTouch() {
     this._ensureAudioCtx();
+    // 首次轻触：AI 第一轮语音从缓冲开始播放（此后问答正常流式出声）
+    if (this.voice && this.voice._muteUntilTouch !== false) this.voice.setMuteUntilTouch(false);
     const ac = this._audioCtx;
     if (ac && (ac.state === 'suspended' || ac.state === 'interrupted') && ac.resume) {
       // 手势栈内同步 resume（iOS 要求），随后异步 retry 重放
@@ -332,7 +337,8 @@ Page({
       return;
     }
     let text;
-    if (d.recognizing || d.userSpeaking) text = '正在听你说…';
+    if (d.greetingWaiting) text = '轻触屏幕播放语音';
+    else if (d.recognizing || d.userSpeaking) text = '正在听你说…';
     else if (d.aiSpeaking) text = 'AI 正在回复…（按住可打断）';
     else text = '按住下方按钮说话';
     this.setData({ callStatusText: text, headStatusText: text });
@@ -346,7 +352,7 @@ Page({
     this._ensureAudioCtx();
     let resolved = false;
     const p = new Promise((resolve, reject) => {
-      self.setData({ callOn: true, callStatusText: '正在连接…' });
+      self.setData({ callOn: true, callStatusText: '正在连接…', greetingWaiting: true });
       self.voice = new VoiceCall({
         onStatus(text, live) {
           if (live) {
@@ -410,7 +416,12 @@ Page({
           self._saveHistory();
           self._bumpScroll();
         },
-        onAiSpeaking(on) { self.setData({ aiSpeaking: on }); self._refreshStatus(); },
+        onAiSpeaking(on) {
+          // 播放开始 → 取消"轻触播放"等待；第一轮播放结束 → 解锁 PTT 按住说话
+          if (on) self.setData({ aiSpeaking: true, greetingWaiting: false });
+          else self.setData({ aiSpeaking: false, firstReplyDone: true });
+          self._refreshStatus();
+        },
         onUserSpeaking(on) { self.setData({ userSpeaking: on }); self._refreshStatus(); },
         onError(msg) {
           console.warn('[Chat] voice error:', msg);
@@ -428,8 +439,8 @@ Page({
         : Promise.resolve();
       prep.then(() => {
         // 题干就绪后重新生成开场白（结合刚拿到的题目/错因）
-        // 首次进入只发文字、不播开场白语音（iOS 无声问题规避）；问答环节正常出声
-        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx, { muteGreeting: true });
+        // 自动连接：AI 文字先显示，语音先缓冲；用户轻触屏幕后从头播放（iOS 手势解锁）
+        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx, { muteUntilTouch: true });
       });
     });
     this._voiceConnecting = p;
@@ -519,6 +530,8 @@ Page({
     this._saveHistory();
     this.setData({
       callOn: false,
+      greetingWaiting: false,
+      firstReplyDone: false,
       connected: false,
       callListening: false,
       aiSpeaking: false,
