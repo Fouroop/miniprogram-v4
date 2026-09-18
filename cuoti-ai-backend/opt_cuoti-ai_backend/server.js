@@ -25,6 +25,7 @@ app.use('/api/questions', require('./routes/questions'));
 app.use('/api/mistakes', require('./routes/mistakes'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/vip', require('./routes/vip'));
+app.use('/api/apply', require('./routes/apply'));
 app.use('/api/voice', require('./routes/voice'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/my', require('./routes/api_access'));

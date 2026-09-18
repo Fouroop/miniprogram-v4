@@ -13,6 +13,17 @@
     <view class="cb-tip">语音通话按流量扣减（MB）</view>
   </view>
 
+  <!-- 我的申请状态 -->
+  <view class="apply-list" wx:if="{{applies.length}}">
+    <view class="al-title">我的申请记录</view>
+    <view class="al-item" wx:for="{{applies}}" wx:key="id">
+      <view class="al-name">{{item.plan_name || (item.type === 'voice' ? '语音包' : '会员')}}</view>
+      <view class="al-status {{item.status === 'approved' ? 'ok' : (item.status === 'rejected' ? 'no' : '')}}">
+        {{item.status === 'approved' ? '已通过' : (item.status === 'rejected' ? '已拒绝' : '待审核')}}
+      </view>
+    </view>
+  </view>
+
   <view class="pay-card {{item.hot ? 'hot' : ''}}" wx:for="{{plans}}" wx:key="plan" data-key="{{item.plan}}" bindtap="buy">
     <view class="hot-tag" wx:if="{{item.hot}}">推荐</view>
     <view class="pc-name">{{item.name}}</view>
@@ -20,9 +31,9 @@
     <view class="pc-note">{{item.desc_text}}</view>
     <view class="pc-feat">✓ 含 {{item.minutes}} MB AI 语音流量</view>
     <view class="pc-feat">✓ {{item.duration_days}} 天有效，随时打断</view>
-    <view class="btn {{item.hot ? 'btn-primary' : 'btn-ghost'}} btn-block btn-sm pc-btn">立即开通</view>
+    <view class="btn {{item.hot ? 'btn-primary' : 'btn-ghost'}} btn-block btn-sm pc-btn">申请开通</view>
   </view>
 
-  <view class="pay-note">点击套餐 → 添加管理员微信申请开通，管理员确认后发放流量</view>
+  <view class="pay-note">点击套餐 → 提交申请，管理员审核通过后自动发放流量；加管理员微信 {{adminWechat}} 可加速</view>
   <view class="bottom-space"></view>
 </view>

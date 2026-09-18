@@ -134,6 +134,11 @@ router.post('/wxlogin', async (req, res) => {
     );
     user = { id: r.insertId, username, nickname: nickname ? String(nickname).slice(0, 32) : '微信用户', avatar: avatarUrl, role: 'student' };
     await ensurePresetMistakes(user.id);
+    // 新用户注册通知管理后台（register 申请，管理员在"申请管理"处理）
+    await pool.query(
+      "INSERT INTO apply_records (user_id, type, plan_name, remark) VALUES (?, 'register', ?, ?)",
+      [user.id, (nickname ? String(nickname).slice(0, 32) : '微信用户'), '微信新用户注册']
+    );
     isNew = true;
   }
 
@@ -225,6 +230,11 @@ router.post('/register', async (req, res) => {
   const token = jwt.sign({ id: r.insertId, username, role: 'student' }, config.jwt.userSecret, { expiresIn: config.jwt.userExpire });
   // 新用户自动预置各科题目
   try { await ensurePresetMistakes(r.insertId); } catch (e) { console.error('[auth] ensurePresetMistakes error:', e); }
+  // 注册通知管理后台
+  await pool.query(
+    "INSERT INTO apply_records (user_id, type, plan_name, remark) VALUES (?, 'register', ?, '账号密码注册')",
+    [r.insertId, nickname || username]
+  );
   res.json({ ok: true, data: { token, user: { id: r.insertId, username, nickname: nickname || username, grade: grade || '', is_vip: 0, voice_minutes: 0, voice_expire: null } } });
 });
 

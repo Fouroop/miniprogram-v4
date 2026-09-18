@@ -118,6 +118,13 @@ tr:hover td { background: #fafbfe; }
 .tag.orange { background: #fdf1dc; color: var(--warn); }
 .tag.blue { background: #e3ecfe; color: var(--primary); }
 .tag.red { background: #fde4e5; color: var(--danger); }
+.badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 11px; line-height: 16px; background: var(--danger); color: #fff; vertical-align: 2px; }
+.tag-pending { background: #fdf1dc; color: var(--warn); }
+.tag-approved { background: #e3f7ec; color: var(--success); }
+.tag-rejected { background: #fde4e5; color: var(--danger); }
+.tag-register { background: #eef1f8; color: #666; }
+.tag-voice { background: #e3ecfe; color: var(--primary); }
+.tag-vip { background: #f2e8fd; color: #8e44ad; }
 
 /* ---------- Toast ---------- */
 #toast {

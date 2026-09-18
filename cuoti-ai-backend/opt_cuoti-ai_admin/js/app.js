@@ -2,6 +2,7 @@
 const PAGES = {
   dashboard: { title: '数据概览', render: renderDashboard },
   users: { title: '用户管理', render: renderUsers },
+  applies: { title: '申请管理', render: renderApplies },
   llm: { title: '大模型管理', render: renderLlm },
   conversations: { title: '对话管理', render: renderConversations },
   questions: { title: '题库管理', render: renderQuestions },
@@ -20,6 +21,7 @@ function navTo(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
   document.getElementById('pageTitle').textContent = PAGES[page].title;
   PAGES[page].render();
+  if (page === 'applies') loadApplyBadge();
 }
 
 async function doLogin() {
@@ -45,6 +47,7 @@ function showMain() {
   document.getElementById('mainLayout').style.display = 'flex';
   document.getElementById('adminName').textContent = localStorage.getItem('admin_name') || 'admin';
   navTo('dashboard');
+  loadApplyBadge();
 }
 
 // 回车登录

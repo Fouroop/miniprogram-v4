@@ -37,7 +37,7 @@
     </view>
     <view class="pc-note">{{item.desc_text}} · 含 {{item.minutes}} MB · {{item.duration_days}} 天有效</view>
   </view>
-  <view class="plan-manual-tip" wx:if="{{plans.length}}">点击套餐 → 添加管理员微信 → 申请开通，管理员确认后发放流量</view>
+  <view class="plan-manual-tip" wx:if="{{plans.length}}">点击套餐 → 提交申请，管理员审核通过后自动发放流量</view>
 
   <!-- 设置 -->
   <view class="card">

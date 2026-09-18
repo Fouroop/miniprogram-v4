@@ -859,6 +859,96 @@ router.get('/volc/billing', async (req, res) => {
   }
 });
 
+// ================= 申请管理（注册通知 / 语音包开通 / 会员开通） =================
+// 申请列表
+router.get('/applies', async (req, res) => {
+  const { type = '', status = '', keyword = '', page = 1, size = 10 } = req.query;
+  const p = Math.max(1, parseInt(page)), s = Math.min(100, parseInt(size));
+  let where = '1=1';
+  const params = [];
+  if (type) { where += ' AND a.type=?'; params.push(type); }
+  if (status) { where += ' AND a.status=?'; params.push(status); }
+  if (keyword) { where += ' AND (u.username LIKE ? OR u.nickname LIKE ?)'; params.push(`%${keyword}%`, `%${keyword}%`); }
+  const [total] = await pool.query(`SELECT COUNT(*) c FROM apply_records a LEFT JOIN users u ON a.user_id=u.id WHERE ${where}`, params);
+  const [rows] = await pool.query(
+    `SELECT a.id, a.user_id, a.type, a.plan, a.plan_name, a.amount, a.status, a.remark,
+            a.handled_by, a.handled_at, a.created_at, u.username, u.nickname, u.grade, u.phone_last4
+     FROM apply_records a LEFT JOIN users u ON a.user_id=u.id
+     WHERE ${where} ORDER BY (a.status='pending') DESC, a.id DESC LIMIT ? OFFSET ?`,
+    [...params, s, (p - 1) * s]
+  );
+  res.json({ ok: true, data: { list: rows, total: total[0].c, page: p, size: s } });
+});
+
+// 待办计数（侧边栏角标）
+router.get('/applies/count', async (req, res) => {
+  const [rows] = await pool.query(
+    "SELECT type, COUNT(*) c FROM apply_records WHERE status='pending' GROUP BY type"
+  );
+  const total = rows.reduce((s, x) => s + x.c, 0);
+  const byType = {};
+  rows.forEach(r => byType[r.type] = r.c);
+  res.json({ ok: true, data: { total, register: byType.register || 0, voice: byType.voice || 0, vip: byType.vip || 0 } });
+});
+
+// 审批：approved（voice→发放流量 / vip→开通会员）/ rejected
+router.put('/applies/:id', async (req, res) => {
+  const { status, remark } = req.body;
+  if (!['approved', 'rejected'].includes(status)) return res.json({ ok: false, error: '状态不正确' });
+  const [rows] = await pool.query('SELECT * FROM apply_records WHERE id=?', [req.params.id]);
+  if (!rows.length) return res.json({ ok: false, error: '申请不存在' });
+  const a = rows[0];
+  if (a.status !== 'pending') return res.json({ ok: false, error: '该申请已处理过' });
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    if (status === 'approved' && a.type === 'voice') {
+      // 发放语音流量（按套餐模板）
+      const [plans] = await conn.query('SELECT * FROM voice_plans WHERE plan=?', [a.plan]);
+      if (!plans.length) throw new Error('语音套餐不存在，无法发放');
+      const p = plans[0];
+      const [users] = await conn.query('SELECT voice_mb, voice_expire FROM users WHERE id=? FOR UPDATE', [a.user_id]);
+      if (!users.length) throw new Error('用户不存在');
+      const now = Date.now();
+      const cur = (users[0].voice_expire && new Date(users[0].voice_expire) > now) ? new Date(users[0].voice_expire).getTime() : now;
+      const newExpire = cur + (p.duration_days || 30) * 24 * 3600 * 1000;
+      const newMb = (parseFloat(users[0].voice_mb) || 0) + (p.quota_mb || p.minutes || 0);
+      await conn.query('UPDATE users SET voice_mb=?, voice_expire=? WHERE id=?', [newMb, new Date(newExpire), a.user_id]);
+      await conn.query(
+        'INSERT INTO voice_orders (user_id, plan, plan_name, minutes, amount, status, pay_type) VALUES (?,?,?,?,?,?,?)',
+        [a.user_id, p.plan, p.name, p.quota_mb || p.minutes, p.price, 'paid', 'apply']
+      );
+    } else if (status === 'approved' && a.type === 'vip') {
+      // 开通/续期会员
+      const apply = require('./apply');
+      const p = apply.VIP_PLANS.find(x => x.plan === a.plan);
+      if (!p) throw new Error('会员套餐不存在，无法开通');
+      const [users] = await conn.query('SELECT vip_expire FROM users WHERE id=? FOR UPDATE', [a.user_id]);
+      if (!users.length) throw new Error('用户不存在');
+      const now = Date.now();
+      const cur = (users[0].vip_expire && new Date(users[0].vip_expire) > now) ? new Date(users[0].vip_expire).getTime() : now;
+      const newExpire = new Date(cur + p.duration_days * 24 * 3600 * 1000);
+      await conn.query('UPDATE users SET is_vip=1, vip_expire=? WHERE id=?', [newExpire, a.user_id]);
+      await conn.query(
+        'INSERT INTO vip_orders (user_id, plan, amount, status) VALUES (?,?,?,?)',
+        [a.user_id, p.plan, p.amount, 'paid']
+      );
+    }
+    await conn.query(
+      'UPDATE apply_records SET status=?, remark=?, handled_by=?, handled_at=NOW() WHERE id=?',
+      [status, String(remark || '').slice(0, 200), req.admin && req.admin.username || 'admin', a.id]
+    );
+    await conn.commit();
+    res.json({ ok: true, data: { id: a.id, status } });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ ok: false, error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // ---------- 工具 ----------
 function maskKey(k) {
   if (!k) return '';
