@@ -152,9 +152,9 @@ router.post('/wxlogin', async (req, res) => {
   });
 });
 
-// 更新个人资料（昵称/头像），微信登录后随时可补
+// 更新个人资料（昵称/头像/年级/电话），微信登录后随时可补
 router.post('/update-profile', userAuth, async (req, res) => {
-  const { nickname, avatar_base64 } = req.body;
+  const { nickname, avatar_base64, grade, phone } = req.body;
   const userId = req.user.id;
   const up = [];
   const params = [];
@@ -174,11 +174,27 @@ router.post('/update-profile', userAuth, async (req, res) => {
     up.push('nickname=?');
     params.push(String(nickname).trim().slice(0, 32));
   }
+  // 年级：允许空串（清空），仅当字段被显式传入
+  if (grade !== undefined && grade !== null) {
+    up.push('grade=?');
+    params.push(String(grade).trim().slice(0, 16));
+  }
+  // 电话：11 位手机号校验；仅存脱敏尾号 phone_last4，同时保留原文供展示
+  if (phone !== undefined && phone !== null) {
+    const p = String(phone).trim();
+    if (p && !/^1\d{10}$/.test(p)) {
+      return res.json({ ok: false, error: '请输入正确的11位手机号' });
+    }
+    up.push('phone=?');
+    params.push(p.slice(0, 20));
+    up.push('phone_last4=?');
+    params.push(p ? p.slice(-4) : '');
+  }
   if (!up.length) return res.json({ ok: false, error: '没有需要更新的内容' });
   params.push(userId);
   await pool.query('UPDATE users SET ' + up.join(',') + ' WHERE id=?', params);
-  const [rows] = await pool.query('SELECT id, username, nickname, avatar, role FROM users WHERE id=?', [userId]);
-  res.ok(rows[0]);
+  const [rows] = await pool.query('SELECT * FROM users WHERE id=?', [userId]);
+  res.ok(pickUser(rows[0]));
 });
 
 // 登录
@@ -222,7 +238,8 @@ router.get('/me', userAuth, async (req, res) => {
 function pickUser(u) {
   return {
     id: u.id, username: u.username, nickname: u.nickname, avatar: u.avatar,
-    grade: u.grade, role: u.role, is_vip: u.is_vip, vip_expire: u.vip_expire,
+    grade: u.grade, phone: u.phone || '', phone_last4: u.phone_last4 || '',
+    role: u.role, is_vip: u.is_vip, vip_expire: u.vip_expire,
     voice_minutes: Number(u.voice_minutes || 0), voice_expire: u.voice_expire
   };
 }

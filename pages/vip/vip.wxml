@@ -23,6 +23,6 @@
     <view class="btn {{item.hot ? 'btn-primary' : 'btn-ghost'}} btn-block btn-sm pc-btn">立即开通</view>
   </view>
 
-  <view class="pay-note">已配置微信支付时自动走正式收款；未配置时为模拟支付（演示）</view>
+  <view class="pay-note">点击套餐 → 添加管理员微信申请开通，管理员确认后发放分钟数</view>
   <view class="bottom-space"></view>
 </view>

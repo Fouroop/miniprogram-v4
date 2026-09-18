@@ -31,6 +31,27 @@
   font-weight: 700;
 }
 
+/* 年级切换条 */
+.grade-bar {
+  white-space: nowrap;
+  margin-bottom: 16rpx;
+}
+.grade-tab {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 10rpx 26rpx;
+  border-radius: 999rpx;
+  background: #F6ECD9;
+  color: #A87B2E;
+  font-size: 24rpx;
+  margin-right: 12rpx;
+}
+.grade-tab.active {
+  background: #C98A2D;
+  color: #fff;
+  font-weight: 700;
+}
+
 /* 统计卡片 */
 .stat-card {
   background: #FFFDF8;

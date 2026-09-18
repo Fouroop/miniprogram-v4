@@ -3,6 +3,7 @@ const { request } = require('../../utils/request.js');
 const app = getApp();
 
 const SUBJECTS = ['数学', '物理', '化学', '英语', '语文'];
+const GRADES = ['全部', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '七年级', '八年级', '九年级'];
 const LEVELS = [
   { key: 'none', text: '未学', cls: 'lv-none' },
   { key: 'weak', text: '薄弱', cls: 'lv-weak' },
@@ -15,6 +16,8 @@ Page({
     subjects: SUBJECTS,
     subjectIndex: 0,
     subject: SUBJECTS[0],
+    grades: GRADES,
+    grade: '全部',
     chapters: [],
     stat: { total: 0, mastered: 0, reviewing: 0, weak: 0 },
     allStats: [],
@@ -28,6 +31,12 @@ Page({
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
       this.getTabBar().setData({ selected: 1 });
     }
+    // 知识地图按用户年级匹配：编辑资料设置了年级则默认只看该年级章节
+    const userGrade = (app.globalData.user && app.globalData.user.grade) || '';
+    const g = GRADES.indexOf(userGrade) >= 0 ? userGrade : '全部';
+    if (g !== this.data.grade) {
+      this.setData({ grade: g });
+    }
     this.loadAll();
   },
 
@@ -38,7 +47,9 @@ Page({
   },
 
   loadTree() {
-    return request('/knowledge/tree?subject=' + encodeURIComponent(this.data.subject)).then((data) => {
+    const q = '/knowledge/tree?subject=' + encodeURIComponent(this.data.subject) +
+      (this.data.grade && this.data.grade !== '全部' ? '&grade=' + encodeURIComponent(this.data.grade) : '');
+    return request(q).then((data) => {
       data = data || {};
       const chapters = (data.chapters || []).map((ch) => ({
         id: ch.id,
@@ -80,6 +91,14 @@ Page({
     const i = Number(e.currentTarget.dataset.i);
     if (i === this.data.subjectIndex) return;
     this.setData({ subjectIndex: i, subject: this.data.subjects[i], expanded: {}, masteryPanel: null, masterySel: '' });
+    this.loadTree();
+  },
+
+  onGradeTap(e) {
+    const i = Number(e.currentTarget.dataset.i);
+    const g = this.data.grades[i];
+    if (g === this.data.grade) return;
+    this.setData({ grade: g, expanded: {}, masteryPanel: null, masterySel: '' });
     this.loadTree();
   },
 

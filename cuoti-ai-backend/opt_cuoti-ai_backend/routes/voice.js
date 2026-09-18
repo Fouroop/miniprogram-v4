@@ -6,6 +6,18 @@ const wxpay = require('./wxpay');
 
 const router = express.Router();
 
+// ---------- 管理员微信（语音包人工开通） ----------
+router.get('/admin-contact', userAuth, async (req, res) => {
+  const config = require('../config');
+  res.json({
+    ok: true,
+    data: {
+      wechat: config.adminWechat || '',
+      tips: '添加管理员微信，备注“开通语音包+昵称”，管理员确认后为你开通分钟数'
+    }
+  });
+});
+
 // ================= 以下路由不挂 userAuth（独立鉴权） =================
 
 // ---------- 语音代理流量上报（内网，X-Report-Key 鉴权） ----------

@@ -38,10 +38,20 @@ router.get('/subjects', async (req, res) => {
 // 大纲树：GET /knowledge/tree?subject=数学
 router.get('/tree', async (req, res) => {
   const subject = req.query.subject || '数学';
-  const [kps] = await pool.query(
-    'SELECT id, subject, name, parent_id, level FROM knowledge_points WHERE subject=? ORDER BY sort, id',
-    [subject]
-  );
+  const grade = req.query.grade || '';
+  let kps;
+  if (grade && grade !== '全部') {
+    // 按年级匹配：该年级章节 + 通用章节（语文/英语等不分年级的科目）
+    [kps] = await pool.query(
+      'SELECT id, subject, name, parent_id, level FROM knowledge_points WHERE subject=? AND (grade=? OR grade=\'通用\') ORDER BY sort, id',
+      [subject, grade]
+    );
+  } else {
+    [kps] = await pool.query(
+      'SELECT id, subject, name, parent_id, level FROM knowledge_points WHERE subject=? ORDER BY sort, id',
+      [subject]
+    );
+  }
   const [uks] = await pool.query('SELECT kp_id, level FROM user_knowledge WHERE user_id=?', [req.user.id]);
   const ukMap = {};
   uks.forEach((u) => { ukMap[u.kp_id] = u.level; });

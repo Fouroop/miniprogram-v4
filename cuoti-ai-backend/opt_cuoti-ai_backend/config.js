@@ -15,6 +15,8 @@ module.exports = {
     password: process.env.DB_PASSWORD || 'HrmanagMent001',
     database: process.env.DB_NAME || 'cuoti_ai'
   },
+  // 管理员微信（语音包人工开通，env ADMIN_WECHAT 可覆盖）
+  adminWechat: process.env.ADMIN_WECHAT || 'zblw2026',
   // 思维引导人设 system prompt
   socraticSystem: `你是一位亲切、耐心的"思维引导式"AI辅导老师，专门带学生把错题想透。
 规则：

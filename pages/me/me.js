@@ -1,7 +1,6 @@
 // pages/me/me.js
 const { request } = require('../../utils/request.js');
 const store = require('../../utils/store.js');
-const pay = require('../../utils/pay.js');
 const app = getApp();
 
 function fmtDate(d) {
@@ -21,6 +20,10 @@ Page({
     editAvatarPath: '',
     editAvatarBase64: '',
     editNickname: '',
+    gradeOptions: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '七年级', '八年级', '九年级'],
+    editGrade: '',
+    editGradeIndex: 0,
+    editPhone: '',
     savingProfile: false,
     // 连接 AI 弹层
     showAiConnect: false,
@@ -65,13 +68,36 @@ Page({
     }).catch(() => {});
   },
 
-  /* ---------- 语音包购买（统一支付入口：个人虚拟支付→微信支付商户→模拟） ---------- */
+  /* ---------- 语音包购买（管理员微信人工开通） ---------- */
   buy(e) {
     const plan = e.currentTarget.dataset.key;
     const p = this.data.plans.find((x) => x.plan === plan);
     if (!p) return;
     const self = this;
-    pay.buy(p, { onPaid: () => self.refreshVoiceBalance() });
+    wx.showLoading({ title: '获取中…' });
+    request('/voice/admin-contact')
+      .then((d) => {
+        wx.hideLoading();
+        const wxid = (d && d.wechat) || '';
+        wx.showModal({
+          title: '申请开通语音包',
+          content: '该语音包由管理员人工开通：\n\n1. 添加管理员微信：' + (wxid || '（待公布）') + '\n2. 备注“开通语音包 + 昵称”\n3. 管理员确认后为你发放「' + (p.name || p.plan) + '」',
+          confirmText: '复制微信号',
+          cancelText: '取消',
+          success(r) {
+            if (r.confirm && wxid) {
+              wx.setClipboardData({
+                data: wxid,
+                success: () => wx.showToast({ title: '微信号已复制，去添加申请吧', icon: 'none' })
+              });
+            }
+          }
+        });
+      })
+      .catch(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '获取管理员联系方式失败', icon: 'none' });
+      });
   },
 
   /* ---------- 连接 AI（个人授权码） ---------- */
@@ -164,11 +190,15 @@ Page({
   /* ---------- 编辑资料 ---------- */
   openEdit() {
     const u = this.data.user || {};
+    const g = u.grade || '';
     this.setData({
       showEdit: true,
       editAvatarPath: u.avatar || '',
       editAvatarBase64: '',
-      editNickname: u.nickname || ''
+      editNickname: u.nickname || '',
+      editGrade: g,
+      editGradeIndex: this.data.gradeOptions.indexOf(g) >= 0 ? this.data.gradeOptions.indexOf(g) : 0,
+      editPhone: u.phone || ''
     });
   },
 
@@ -180,6 +210,13 @@ Page({
   noop() {},
 
   onEditNick(e) { this.setData({ editNickname: e.detail.value }); },
+
+  onEditGrade(e) {
+    const i = Number(e.detail.value) || 0;
+    this.setData({ editGradeIndex: i, editGrade: this.data.gradeOptions[i] || '' });
+  },
+
+  onEditPhone(e) { this.setData({ editPhone: e.detail.value }); },
 
   onEditAvatar(e) {
     const p = e.detail.avatarUrl;
@@ -215,12 +252,16 @@ Page({
     }
     this.setData({ savingProfile: true });
     const self = this;
+    const payload = {
+      nickname: nick,
+      avatar_base64: this.data.editAvatarBase64 || '',
+      grade: this.data.editGrade || ''
+    };
+    const phone = (this.data.editPhone || '').trim();
+    if (phone) payload.phone = phone;
     request('/auth/update-profile', {
       method: 'POST',
-      data: {
-        nickname: nick,
-        avatar_base64: this.data.editAvatarBase64 || ''
-      }
+      data: payload
     }).then((u) => {
       app.globalData.user = u;
       wx.setStorageSync('user', u);

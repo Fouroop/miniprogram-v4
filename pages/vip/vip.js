@@ -1,6 +1,5 @@
 // pages/vip/vip.js —— 语音包开通页（3档：单次/月付/年付）
 const { request } = require('../../utils/request.js');
-const pay = require('../../utils/pay.js');
 const app = getApp();
 
 function fmtDate(d) {
@@ -44,32 +43,30 @@ Page({
     const plan = e.currentTarget.dataset.key;
     const p = this.data.plans.find((x) => x.plan === plan);
     if (!p) return;
-    // 统一支付入口：个人虚拟支付 → 微信支付商户 → 模拟支付
-    pay.buy(p, { onPaid: () => this._pollBalanceAfterPay() });
-  },
-
-  // 支付成功后轮询余额（回调异步发货）
-  _pollBalanceAfterPay() {
-    let n = 0;
-    const timer = setInterval(() => {
-      n++;
-      this.loadBalance().then((b) => {
-        if (b && b.minutes > 0 && n > 1) {
-          clearInterval(timer);
-          wx.showModal({
-            title: '语音包已到账',
-            content: '当前剩余 ' + b.minutes + ' 分钟，快去打电话问老师吧！',
-            showCancel: false
-          });
-        } else if (n >= 6) {
-          clearInterval(timer);
-          wx.showModal({
-            title: '支付确认中',
-            content: '支付已成功，语音包稍候到账，可下拉刷新查看。',
-            showCancel: false
-          });
-        }
-      }).catch(() => {});
-    }, 2000);
+    const self = this;
+    wx.showLoading({ title: '获取中…' });
+    request('/voice/admin-contact')
+      .then((d) => {
+        wx.hideLoading();
+        const wxid = (d && d.wechat) || '';
+        wx.showModal({
+          title: '申请开通语音包',
+          content: '该语音包由管理员人工开通：\n\n1. 添加管理员微信：' + (wxid || '（待公布）') + '\n2. 备注“开通语音包 + 昵称”\n3. 管理员确认后为你发放「' + (p.name || p.plan) + '」',
+          confirmText: '复制微信号',
+          cancelText: '取消',
+          success(r) {
+            if (r.confirm && wxid) {
+              wx.setClipboardData({
+                data: wxid,
+                success: () => wx.showToast({ title: '微信号已复制，去添加申请吧', icon: 'none' })
+              });
+            }
+          }
+        });
+      })
+      .catch(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '获取管理员联系方式失败', icon: 'none' });
+      });
   }
 });

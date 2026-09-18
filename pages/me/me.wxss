@@ -146,6 +146,9 @@
 .pc-price { font-size: 48rpx; font-weight: 800; }
 .pc-unit { font-size: 24rpx; color: #6E675A; font-weight: 500; }
 .pc-note { font-size: 22rpx; color: #6E675A; margin-top: 10rpx; }
+.plan-manual-tip { font-size: 22rpx; color: #C98A2D; background: #F6ECD9; border-radius: 14rpx; padding: 14rpx 20rpx; margin: 4rpx 0 20rpx; }
+.edit-picker { display: flex; align-items: center; min-height: 88rpx; box-sizing: border-box; margin-top: 20rpx; }
+.edit-placeholder { color: #A69C89; }
 
 /* 连接 AI */
 .set-icon.green { background: #E3F7EC; color: #21A366; }

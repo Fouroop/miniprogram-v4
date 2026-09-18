@@ -6,6 +6,13 @@
       data-i="{{index}}" bindtap="onSubjectTap">{{item}}</view>
   </view>
 
+  <!-- 年级切换（按用户年级匹配大纲） -->
+  <scroll-view class="grade-bar" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view wx:for="{{grades}}" wx:key="*this"
+      class="grade-tab {{grade === item ? 'active' : ''}}"
+      data-i="{{index}}" bindtap="onGradeTap">{{item}}</view>
+  </scroll-view>
+
   <!-- 掌握统计 -->
   <view class="stat-card">
     <view class="stat-item"><text class="stat-num">{{stat.total}}</text><text class="stat-label">全部知识点</text></view>
