@@ -104,6 +104,8 @@ Page({
           .catch(() => {
             wx.hideLoading();
             wx.showToast({ title: '提交失败，请稍后重试', icon: 'none' });
+          });
+        }
       });
   },
 
