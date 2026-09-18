@@ -131,11 +131,14 @@ function createStreamingPlayer(opts) {
   }
 
   // 启动前先解锁 AudioContext（iOS 无手势创建为 suspended，直接调度会无声）
+  // 解锁失败则挂起等待：音频继续积累到缓冲区，用户首次触摸（onPageTouch→retry）后从头播放
   function startWhenReady() {
     if (started) return;
     var a = ensureAc();
     if (a.state === 'suspended' && a.resume) {
-      a.resume().then(function () { startPlayback(); }).catch(function () { startPlayback(); });
+      a.resume().then(function () { startPlayback(); }).catch(function () {
+        // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
+      });
     } else {
       startPlayback();
     }

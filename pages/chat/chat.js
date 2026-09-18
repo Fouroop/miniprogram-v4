@@ -139,15 +139,18 @@ Page({
 
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
-  // 首次触摸：解锁 AudioContext（iOS 自动播放限制）并重放 AI 未播出的声音
+  // 触摸页面：解锁 AudioContext（iOS 自动播放限制），解锁完成后重放 AI 未播出的声音
+  // 每次都尝试（resume/retry 幂等），首次解锁失败时后续触摸仍可触发
   onPageTouch() {
-    if (this._touched) return;
-    this._touched = true;
     this._ensureAudioCtx();
-    if (this._audioCtx && this._audioCtx.state === 'suspended' && this._audioCtx.resume) {
-      try { this._audioCtx.resume(); } catch (e) {}
+    const ac = this._audioCtx;
+    if (ac && ac.state === 'suspended' && ac.resume) {
+      try {
+        ac.resume().then(() => { if (this.voice) this.voice.retry(); }).catch(() => {});
+      } catch (e) {}
+    } else if (this.voice) {
+      this.voice.retry();
     }
-    if (this.voice) this.voice.retry();
   },
 
   /* ---------- 输入方式切换（微信聊天式：语音/键盘） ---------- */
