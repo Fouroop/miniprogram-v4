@@ -160,11 +160,21 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
+  // 只更新传入的字段，避免未传字段被写成 NULL
   const { stem, answer, wrong_answer, reason, subject, tag, status } = req.body;
-  await pool.query(
-    `UPDATE mistakes SET stem=?, answer=?, wrong_answer=?, reason=?, subject=?, tag=?, status=? WHERE id=? AND user_id=?`,
-    [stem, answer, wrong_answer, reason, subject, tag, status, req.params.id, req.user.id]
-  );
+  const fields = {};
+  if (stem !== undefined) fields.stem = stem;
+  if (answer !== undefined) fields.answer = answer;
+  if (wrong_answer !== undefined) fields.wrong_answer = wrong_answer;
+  if (reason !== undefined) fields.reason = reason;
+  if (subject !== undefined) fields.subject = subject;
+  if (tag !== undefined) fields.tag = tag;
+  if (status !== undefined) fields.status = status;
+  if (!Object.keys(fields).length) return res.json({ ok: false, error: '没有需要更新的字段' });
+  const setSql = Object.keys(fields).map((k) => k + '=?').join(',');
+  const params = Object.keys(fields).map((k) => fields[k]);
+  params.push(req.params.id, req.user.id);
+  await pool.query(`UPDATE mistakes SET ${setSql} WHERE id=? AND user_id=?`, params);
   res.json({ ok: true });
 });
 

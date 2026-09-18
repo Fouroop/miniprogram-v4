@@ -16,33 +16,35 @@ const PERSONA =
 Page({
   data: {
     isVip: false,
-    mode: 'voice',          // text | voice（默认语音提问）
+    inputMode: 'voice',      // voice（按住说话）| text（键盘输入），微信聊天式切换
     mistakeId: null,
     mistake: null,
 
     stemOpen: true,
+    headStatusText: '支持文字与语音提问',
+    topic: '自由提问',
+    scrollTop: 0,
 
-    // 文字对话
+    // 聊天记录（文字 + 语音统一列表）
     messages: [],
     inputText: '',
     typing: false,
     conversationId: null,
 
-    // 语音通话（全双工：麦克风始终开启，服务端 VAD 自动检测说话/停顿）
+    // 语音通话状态（按住说话 PTT）
     callOn: false,
     connected: false,       // 会话已接通
     callListening: false,   // 麦克风收音中
-    micPaused: false,       // 用户按住暂停收音（静音）
-    aiSpeaking: false,      // AI 音频播放中（仅作状态展示，不再用于开关麦克风）
+    micPaused: false,       // 用户按住收音中
+    aiSpeaking: false,      // AI 音频播放中（仅作状态展示）
     recognizing: false,     // 识别用户语音中
     userSpeaking: false,    // 服务端 VAD 检测到用户正在说话
     callStatusText: '',
     callSeconds: 0,
     callSecondsText: '未接通',
     audioChunks: 0,
-    callLog: [],
 
-    // 通话后掌握标记
+    // 辅导后掌握标记
     showMastery: false,
     masterySel: '',
     masteryTag: '',
@@ -57,6 +59,16 @@ Page({
     // 计费已切换为语音包：文字对话免费开放，语音通话按语音包计费（startCall 时校验）
     // 恢复本地保存的聊天记录（重新进入页面不丢）
     this._restoreHistory();
+
+    // 从题库"问这道题"进入：自动以文字发起讲解，AI 直接开始回答
+    const seed = wx.getStorageSync('chat_seed');
+    if (seed && seed.stem) {
+      wx.removeStorageSync('chat_seed');
+      this.setData({ inputMode: 'text', headStatusText: 'AI 正在讲解…' });
+      setTimeout(() => this._postText('帮我讲这道题：' + seed.stem), 300);
+      return;
+    }
+
     if (opts.mistake_id) {
       this.setData({ mistakeId: opts.mistake_id });
       // 先加载题目，再自动连接——确保 AI 建会话时系统指令里已带题干（避免 AI 不知道题目）
@@ -87,17 +99,17 @@ Page({
           cancelText: '先用文字',
           success: (r) => {
             if (r.confirm) wx.switchTab({ url: '/pages/me/me' });
-            else self.setData({ mode: 'text' });
+            else self.setData({ inputMode: 'text' });
           }
         });
         return;
       }
       // 立即自动连接，连接成功 AI 导师会先说话（用户随时开口即可对话）
-      if (self.data.mode !== 'voice') return;
+      if (self.data.inputMode !== 'voice') return;
       self._ensureVoice().catch(() => {});
     }).catch(() => {
-      // 余额不足或网络异常：静默回文字模式（弹窗由 /voice/start 返回后统一处理）
-      self.setData({ mode: 'text' });
+      // 余额不足或网络异常：静默回文字输入（弹窗由 /voice/start 返回后统一处理）
+      self.setData({ inputMode: 'text' });
     });
   },
 
@@ -114,17 +126,24 @@ Page({
     if (this.voice) this.voice.retry();
   },
 
-  /* ---------- 模式切换 ---------- */
-  switchMode(e) {
-    const m = e.currentTarget.dataset.mode;
-    if (m === this.data.mode) return;
-    if (m === 'text' && this.data.callOn) this.hangup();
-    this.setData({ mode: m });
+  /* ---------- 输入方式切换（微信聊天式：语音/键盘） ---------- */
+  toggleInputMode() {
+    const next = this.data.inputMode === 'text' ? 'voice' : 'text';
+    if (next === 'text' && this.data.callOn) this.hangup();
+    this.setData({
+      inputMode: next,
+      headStatusText: next === 'voice' ? '语音：接通后按住说话' : '支持文字与语音提问'
+    });
   },
 
   toggleStem() { this.setData({ stemOpen: !this.data.stemOpen }); },
 
-  /* ---------- 聊天记录删除 ---------- */
+  // 新消息时滚动到底部（微信聊天跟随效果）
+  _bumpScroll() {
+    this.setData({ scrollTop: (this.data.scrollTop || 0) + 1 });
+  },
+
+  /* ---------- 聊天记录（统一：文字 + 语音）删除 ---------- */
   onMsgLongPress(e) {
     const idx = e.currentTarget.dataset.idx;
     const msg = this.data.messages[idx];
@@ -145,7 +164,7 @@ Page({
     const msgs = this.data.messages.slice();
     msgs.splice(idx, 1);
     this.setData({ messages: msgs });
-    this._saveTextHistory();
+    this._saveHistory();
   },
   clearTextHistory() {
     const self = this;
@@ -159,84 +178,57 @@ Page({
           messages: [{ role: 'ai', text: '你好，我是你的 AI 苏格拉底导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。' }],
           conversationId: null
         });
-        self._saveTextHistory();
-        store.remove(self._histKey('text'));
+        self._saveHistory();
+        store.remove(self._histKey());
         wx.showToast({ title: '已清空', icon: 'success' });
       }
     });
   },
 
-  /* ---------- 聊天记录本地持久化 ---------- */
-  _histKey(prefix) {
-    return 'chat_' + prefix + '_' + (this.data.mistakeId || 'free');
+  /* ---------- 聊天记录本地持久化（文字+语音统一） ---------- */
+  _histKey() {
+    return 'chat_' + (this.data.mistakeId || 'free');
   },
-  _saveTextHistory() {
-    store.set(this._histKey('text'), {
+  _saveHistory() {
+    store.set(this._histKey(), {
       messages: this.data.messages,
       conversationId: this.data.conversationId || null
     });
   },
-  _saveVoiceHistory() {
-    store.set(this._histKey('voice'), { callLog: this.data.callLog });
-  },
 
-  // 长按语音气泡删除该条记录
-  onDeleteLogItem(e) {
-    const idx = e.currentTarget.dataset.index;
-    const log = this.data.callLog;
-    if (idx === undefined || idx < 0 || idx >= log.length) return;
-    const item = log[idx];
-    const label = item.role === 'ai' ? 'AI 导师' : '我';
-    wx.showModal({
-      title: '删除这条记录？',
-      content: (label + '：' + (item.text || '')).slice(0, 40),
-      confirmText: '删除',
-      confirmColor: '#D64541',
-      success: (r) => {
-        if (!r.confirm) return;
-        const next = this.data.callLog.slice();
-        next.splice(idx, 1);
-        this.setData({ callLog: next });
-        this._saveVoiceHistory();
-      }
-    });
-  },
-
-  // 清空全部语音记录
-  onClearCallLog() {
-    if (!this.data.callLog.length) return;
-    wx.showModal({
-      title: '清空全部记录？',
-      content: '语音提问记录将全部删除，且不可恢复',
-      confirmText: '清空',
-      confirmColor: '#D64541',
-      success: (r) => {
-        if (!r.confirm) return;
-        this.setData({ callLog: [] });
-        this._saveVoiceHistory();
-      }
-    });
-  },
   _restoreHistory() {
-    const saved = store.get(this._histKey('text'));
+    // 新版统一记录：chat_<mistakeId>
+    const saved = store.get(this._histKey());
     if (saved && Array.isArray(saved.messages) && saved.messages.length) {
       this.setData({
         messages: saved.messages,
         conversationId: saved.conversationId || null
       });
-    } else {
-      // 开场白
-      this.setData({
-        messages: [{
-          role: 'ai',
-          text: '你好，我是你的 AI 苏格拉底导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。'
-        }]
-      });
+      return;
     }
-    const sv = store.get(this._histKey('voice'));
-    if (sv && Array.isArray(sv.callLog) && sv.callLog.length) {
-      this.setData({ callLog: sv.callLog });
+    // 兼容旧版：chat_text_xxx（文字） + chat_voice_xxx（语音）合并
+    const t = store.get('chat_text_' + (this.data.mistakeId || 'free'));
+    const v = store.get('chat_voice_' + (this.data.mistakeId || 'free'));
+    let msgs = [];
+    if (t && Array.isArray(t.messages) && t.messages.length) {
+      msgs = msgs.concat(t.messages);
+      this.setData({ conversationId: t.conversationId || null });
     }
+    if (v && Array.isArray(v.callLog) && v.callLog.length) {
+      msgs = msgs.concat(v.callLog.map((m) => ({
+        role: m.role,
+        text: m.text,
+        voice: m.role === 'user' ? true : undefined,
+        stream: m.stream
+      })));
+    }
+    if (!msgs.length) {
+      msgs = [{
+        role: 'ai',
+        text: '你好，我是你的 AI 苏格拉底导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。'
+      }];
+    }
+    this.setData({ messages: msgs });
   },
 
   /* ---------- 文字对话 ---------- */
@@ -245,9 +237,16 @@ Page({
   sendText() {
     const text = this.data.inputText.trim();
     if (!text || this.data.typing) return;
+    this.setData({ inputText: '' });
+    this._postText(text);
+  },
+
+  // 发送一条文字并等待 AI 回复（供输入框与"问这道题"共用）
+  _postText(text) {
     const msgs = this.data.messages.concat([{ role: 'user', text }]);
-    this.setData({ messages: msgs, inputText: '', typing: true });
-    this._saveTextHistory();
+    this.setData({ messages: msgs, typing: true });
+    this._saveHistory();
+    this._bumpScroll();
 
     request('/ai/chat', {
       method: 'POST',
@@ -265,7 +264,8 @@ Page({
         typing: false,
         messages: this.data.messages.concat([{ role: 'ai', text: reply }])
       });
-      this._saveTextHistory();
+      this._saveHistory();
+      this._bumpScroll();
     }).catch(() => this.setData({ typing: false }));
   },
 
@@ -290,12 +290,19 @@ Page({
   // 根据当前通话状态刷新顶部状态文案
   _refreshStatus() {
     const d = this.data;
-    if (!d.callOn || !d.connected) return; // 连接状态由 onStatus 文案控制
+    if (!d.callOn || !d.connected) {
+      // 未通话：头部显示输入方式提示
+      const hint = d.inputMode === 'voice'
+        ? (d.callStatusText || '点击下方按钮接通 AI 导师')
+        : '支持文字与语音提问';
+      this.setData({ headStatusText: hint });
+      return;
+    }
     let text;
     if (d.recognizing || d.userSpeaking) text = '正在听你说…';
     else if (d.aiSpeaking) text = 'AI 正在回复…（按住可打断）';
     else text = '按住下方按钮说话';
-    this.setData({ callStatusText: text });
+    this.setData({ callStatusText: text, headStatusText: text });
   },
 
   // 确保 VoiceCall 已创建（复用同一个实例，其内部会自动重连）
@@ -310,59 +317,65 @@ Page({
       self.voice = new VoiceCall({
         onStatus(text, live) {
           if (live) {
-            self.setData({ connected: true });
+            self.setData({ connected: true, callStatusText: text });
             self._refreshStatus();
             if (!resolved) { resolved = true; resolve(); }
           } else {
             self.setData({ connected: false, callStatusText: text });
+            self._refreshStatus();
           }
         },
         onRecognizing(on) { self.setData({ recognizing: on }); self._refreshStatus(); },
         onListening(on) { self.setData({ callListening: on }); },
         onUserText(text) {
-          // 定稿用户识别文字：更新最后一条“识别中”条目，或追加新条
-          const log = self.data.callLog.slice();
-          const last = log[log.length - 1];
+          // 定稿用户语音识别文字：更新最后一条"识别中"条目，或追加新条（统一进 messages）
+          const msgs = self.data.messages.slice();
+          const last = msgs[msgs.length - 1];
           if (last && last.role === 'user' && last.stream) {
-            log[log.length - 1] = { role: 'user', text: text };
+            msgs[msgs.length - 1] = { role: 'user', text: text, voice: true };
           } else {
-            log.push({ role: 'user', text: text });
+            msgs.push({ role: 'user', text: text, voice: true });
           }
-          self.setData({ callLog: log });
-          self._saveVoiceHistory();
+          self.setData({ messages: msgs });
+          self._saveHistory();
+          self._bumpScroll();
         },
         onUserTextStream(text) {
           // 实时识别文字（边说边显示）
-          const log = self.data.callLog.slice();
-          const last = log[log.length - 1];
+          const msgs = self.data.messages.slice();
+          const last = msgs[msgs.length - 1];
           if (last && last.role === 'user' && last.stream) {
-            log[log.length - 1] = { role: 'user', text: text, stream: true };
+            msgs[msgs.length - 1] = { role: 'user', text: text, stream: true, voice: true };
           } else {
-            log.push({ role: 'user', text: text, stream: true });
+            msgs.push({ role: 'user', text: text, stream: true, voice: true });
           }
-          self.setData({ callLog: log });
+          self.setData({ messages: msgs });
+          self._bumpScroll();
         },
         onAiGreeting(text) {
-          self.setData({ callLog: self.data.callLog.concat([{ role: 'ai', text }]) });
-          self._saveVoiceHistory();
+          self.setData({ messages: self.data.messages.concat([{ role: 'ai', text }]) });
+          self._saveHistory();
+          self._bumpScroll();
         },
         onAiTextDelta(text) {
-          const log = self.data.callLog.slice();
-          const last = log[log.length - 1];
+          const msgs = self.data.messages.slice();
+          const last = msgs[msgs.length - 1];
           if (last && last.stream) {
-            log[log.length - 1] = { role: 'ai', text: text, stream: true };
+            msgs[msgs.length - 1] = { role: 'ai', text: text, stream: true };
           } else {
-            log.push({ role: 'ai', text: text, stream: true });
+            msgs.push({ role: 'ai', text: text, stream: true });
           }
-          self.setData({ callLog: log, typing: true });
+          self.setData({ messages: msgs, typing: true });
+          self._bumpScroll();
         },
         onAiTextDone() {
-          const log = self.data.callLog.slice();
-          if (log.length && log[log.length - 1].stream) {
-            log[log.length - 1] = { role: 'ai', text: log[log.length - 1].text };
+          const msgs = self.data.messages.slice();
+          if (msgs.length && msgs[msgs.length - 1].stream) {
+            msgs[msgs.length - 1] = { role: 'ai', text: msgs[msgs.length - 1].text };
           }
-          self.setData({ callLog: log, typing: false });
-          self._saveVoiceHistory();
+          self.setData({ messages: msgs, typing: false });
+          self._saveHistory();
+          self._bumpScroll();
         },
         onAiSpeaking(on) { self.setData({ aiSpeaking: on }); self._refreshStatus(); },
         onUserSpeaking(on) { self.setData({ userSpeaking: on }); self._refreshStatus(); },
@@ -370,6 +383,7 @@ Page({
           console.warn('[Chat] voice error:', msg);
           // 只提示用户，不要删掉 voice 对象——VoiceCall 内部会自动重连
           self.setData({ callStatusText: msg });
+          self._refreshStatus();
         }
       });
       const greeting = self.data.mistake
@@ -390,9 +404,16 @@ Page({
     return p;
   },
 
+  // 头部右侧操作：通话中=挂断，否则=清空聊天
+  onHeadAction() {
+    if (this.data.callOn) this.hangup();
+    else this.clearTextHistory();
+  },
+
   // 开始通话（挂断后重新进入）
   startCall() {
     if (this.data.callOn) return;
+    this.setData({ headStatusText: '正在连接 AI 导师…' });
     this._ensureVoice().catch(() => {});
   },
 
@@ -430,8 +451,7 @@ Page({
     if (this._audioCtx) { try { this._audioCtx.close(); } catch (e) {} this._audioCtx = null; }
     // 上报通话结束 → 服务端扣减语音包余额并落明细（幂等：call_id 去重，重复调用不重复扣）
     this._reportVoiceEnd(bill);
-    this._saveTextHistory();
-    this._saveVoiceHistory();
+    this._saveHistory();
     this.setData({
       callOn: false,
       connected: false,
@@ -441,7 +461,8 @@ Page({
       userSpeaking: false,
       micPaused: false,
       typing: false,
-      callStatusText: '未接通'
+      callStatusText: '未接通',
+      headStatusText: '语音：接通后按住说话'
     });
   },
 

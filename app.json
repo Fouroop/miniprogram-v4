@@ -3,6 +3,7 @@
     "pages/login/login",
     "pages/home/home",
     "pages/scan/scan",
+    "pages/questions/questions",
     "pages/knowledge/knowledge",
     "pages/mistakes/mistakes",
     "pages/mistake-detail/mistake-detail",

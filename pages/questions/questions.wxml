@@ -1,0 +1,57 @@
+<view class="page">
+  <!-- 顶部 -->
+  <view class="head">
+    <view class="head-l">
+      <view class="head-title">九年级题库</view>
+      <view class="head-sub">几何图形 · 函数专题 · {{total}} 题</view>
+    </view>
+    <view class="head-note">预置题目 · 可加入错题本</view>
+  </view>
+
+  <!-- 筛选 -->
+  <view class="tabs">
+    <view class="tab {{cur === item.key ? 'on' : ''}}" wx:for="{{tabs}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="switchTab">{{item.name}}</view>
+  </view>
+
+  <!-- 列表 -->
+  <view class="list" wx:if="{{list.length}}">
+    <view class="q-item" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+      <image wx:if="{{item.image_url}}" class="q-img" src="{{item.image_url}}" mode="aspectFit" lazy-load="true" />
+      <view class="q-main">
+        <view class="q-tags">
+          <text class="tag tag-subject">{{item.subject || '数学'}}</text>
+          <text wx:if="{{item.tag}}" class="tag tag-topic">{{item.tag}}</text>
+          <text class="tag tag-diff {{item.difficulty === '较难' ? 'hard' : (item.difficulty === '容易' ? 'easy' : '')}}">{{item.difficulty || '中等'}}</text>
+        </view>
+        <view class="q-stem">{{item.stem}}</view>
+      </view>
+    </view>
+    <view class="list-end" wx:if="{{!hasMore}}">— 已加载全部 {{total}} 题 —</view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !list.length}}">
+    <view class="empty-ic">空</view>
+    <view class="empty-t">暂无题目</view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中…</view>
+
+  <!-- 题目详情弹层 -->
+  <view class="mask" wx:if="{{showDetail}}" bindtap="closeDetail"></view>
+  <view class="detail" wx:if="{{showDetail && curQ}}">
+    <view class="detail-title">题目详情</view>
+    <image wx:if="{{curQ.image_url}}" class="detail-img" src="{{curQ.image_url}}" mode="widthFix" />
+    <scroll-view class="detail-body" scroll-y>
+      <view class="sec-label">题目</view>
+      <view class="sec-text">{{curQ.stem}}</view>
+      <view class="sec-label">答案</view>
+      <view class="sec-text sec-answer">{{curQ.answer}}</view>
+      <view class="sec-label">解析</view>
+      <view class="sec-text sec-analysis">{{curQ.analysis || '（暂无解析）'}}</view>
+    </scroll-view>
+    <view class="detail-actions">
+      <view class="d-btn ghost" bindtap="askQuestion">问这道题</view>
+      <view class="d-btn primary" bindtap="addMistake">{{adding ? '加入中…' : '加入错题本'}}</view>
+    </view>
+  </view>
+</view>

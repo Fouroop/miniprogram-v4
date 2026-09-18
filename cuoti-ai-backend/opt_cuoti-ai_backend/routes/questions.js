@@ -5,12 +5,16 @@ const { userAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(userAuth);
 
-// 列表：公共题(user_id IS NULL) + 本人题
+// 列表：公共题(user_id IS NULL) + 本人题；支持 subject / grade / tag 筛选
 router.get('/', async (req, res) => {
-  const { subject, page = 1, size = 10 } = req.query;
+  const { subject, grade, tag, page = 1, size = 20 } = req.query;
   const p = Math.max(1, parseInt(page)), s = Math.min(50, parseInt(size));
-  const where = '(user_id IS NULL OR user_id=?)' + (subject ? ' AND subject=?' : '');
-  const params = subject ? [req.user.id, subject] : [req.user.id];
+  const conds = ['(user_id IS NULL OR user_id=?)'];
+  const params = [req.user.id];
+  if (subject) { conds.push('subject=?'); params.push(subject); }
+  if (grade) { conds.push('grade=?'); params.push(grade); }
+  if (tag) { conds.push('tag=?'); params.push(tag); }
+  const where = conds.join(' AND ');
   const [total] = await pool.query(`SELECT COUNT(*) c FROM questions WHERE ${where}`, params);
   const [rows] = await pool.query(
     `SELECT * FROM questions WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,

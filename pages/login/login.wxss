@@ -64,6 +64,10 @@
   font-size: 32rpx;
   box-sizing: border-box;
 }
+.input-ph {
+  color: #A69C89;
+  font-size: 30rpx;
+}
 
 /* 账号登录 / 微信登录 并排 */
 .btn-row {
@@ -74,8 +78,46 @@
 .btn-flex { flex: 1; }
 
 .wx-note {
-  margin-top: 28rpx;
+  margin-top: 24rpx;
   text-align: center;
   font-size: 22rpx;
   color: #A69C89;
+}
+
+/* 用户协议同意 */
+.agree-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 28rpx;
+  padding: 8rpx 4rpx;
+}
+.agree-box {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 8rpx;
+  border: 2rpx solid #CFC2A6;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.agree-on {
+  background: #D64541;
+  border-color: #D64541;
+}
+.agree-check {
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+.agree-text {
+  font-size: 22rpx;
+  color: #6E675A;
+  line-height: 1.5;
+}
+.agree-link {
+  color: #3B6EA5;
 }

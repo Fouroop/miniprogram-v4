@@ -100,6 +100,7 @@ Page({
   },
 
   goScan() { wx.navigateTo({ url: '/pages/scan/scan' }); },
+  goQuestions() { wx.navigateTo({ url: '/pages/questions/questions' }); },
   goMistakes() { wx.switchTab({ url: '/pages/mistakes/mistakes' }); },
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 

@@ -1,4 +1,4 @@
-.page { padding: 30rpx; display: flex; flex-direction: column; min-height: 100vh; }
+.page { padding: 30rpx 30rpx 0; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
 
 /* 付费墙 */
 .wall {
@@ -24,56 +24,28 @@
 .wall-title { font-size: 34rpx; font-weight: 700; margin-bottom: 12rpx; }
 .wall-desc { font-size: 25rpx; color: #6E675A; margin-bottom: 36rpx; }
 
-/* 模式切换 */
-.mode-switch {
-  display: flex;
-  gap: 12rpx;
-  background: #EFE6D4;
-  border: 1.5rpx solid #E2D8C2;
-  border-radius: 22rpx;
-  padding: 8rpx;
-  margin-bottom: 24rpx;
-}
-.mode-btn {
-  flex: 1;
-  text-align: center;
-  padding: 18rpx;
-  border-radius: 16rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #6E675A;
-}
-.mode-btn.active {
-  background: #FFFDF8;
-  color: #2B2A26;
-  box-shadow: 0 4rpx 12rpx rgba(66, 54, 30, 0.1);
-}
-
-/* 文字模式 */
-.chat-wrap {
-  background: #FFFDF8;
-  border: 1.5rpx solid #E2D8C2;
-  border-radius: 28rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 260rpx);
-}
+/* 头部（统一） */
 .chat-head {
   display: flex;
   align-items: center;
   gap: 18rpx;
-  padding: 22rpx 28rpx;
-  border-bottom: 1.5rpx solid #E2D8C2;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 20rpx 24rpx;
+  flex-shrink: 0;
 }
 .chat-head-action {
   margin-left: auto;
   font-size: 24rpx;
-  color: #D64541;
+  color: #A69C89;
   font-weight: 700;
-  padding: 10rpx 20rpx;
+  padding: 10rpx 22rpx;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 999rpx;
   flex-shrink: 0;
 }
+.chat-head-action.danger { color: #D64541; border-color: #EBC4C1; }
 .ai-dot {
   width: 68rpx;
   height: 68rpx;
@@ -86,8 +58,18 @@
   align-items: center;
   justify-content: center;
   font-size: 24rpx;
+  flex-shrink: 0;
 }
-.chat-title { font-size: 28rpx; font-weight: 700; }
+.ai-dot.live { box-shadow: 0 0 0 6rpx rgba(214, 69, 65, 0.18); animation: pulseDot 1.4s infinite; }
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+.chat-head-t { flex: 1; min-width: 0; }
+.chat-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .chat-sub { font-size: 21rpx; color: #6E675A; margin-top: 4rpx; }
 
 .stem-strip { background: #EFE6D4; padding: 14rpx 28rpx; border-bottom: 1.5rpx solid #E2D8C2; }
@@ -101,7 +83,14 @@
   margin-top: 12rpx;
 }
 
-.chat-body { flex: 1; min-height: 0; padding: 24rpx 28rpx; }
+.chat-body {
+  flex: 1;
+  min-height: 0;
+  padding: 24rpx 28rpx;
+  background: #FFFDF8;
+  border-left: 1.5rpx solid #E2D8C2;
+  border-right: 1.5rpx solid #E2D8C2;
+}
 .msg { display: flex; gap: 16rpx; margin-bottom: 24rpx; max-width: 88%; }
 .msg.ai { align-self: flex-start; }
 .msg.user { align-self: flex-end; flex-direction: row-reverse; }
@@ -124,186 +113,76 @@
   border-radius: 24rpx;
   font-size: 27rpx;
   line-height: 1.8;
+  word-break: break-all;
 }
 .msg.ai .bubble { background: #EFE6D4; border: 1.5rpx solid #E2D8C2; border-top-left-radius: 6rpx; }
 .msg.user .bubble { background: #3B6EA5; color: #fff; border-top-right-radius: 6rpx; }
+.bubble.voice { background: #E9F0FA; color: #2B2A26; border: 1.5rpx solid #D6E4F2; }
+.voice-tag {
+  display: inline-block;
+  font-size: 19rpx;
+  font-weight: 700;
+  color: #3B6EA5;
+  background: #DCE9F6;
+  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  margin-right: 10rpx;
+}
+.stream-caret { color: #A69C89; }
 .bubble.typing { display: flex; gap: 10rpx; align-items: center; }
 .dot-i { width: 12rpx; height: 12rpx; border-radius: 50%; background: #A69C89; }
 
-.chat-input {
-  display: flex;
-  gap: 16rpx;
-  padding: 20rpx;
-  border-top: 1.5rpx solid #E2D8C2;
-  background: #FFFDF8;
-}
-.chat-input-box {
-  flex: 1;
-  padding: 18rpx 24rpx;
-  border: 1.5rpx solid #CFC2A6;
-  border-radius: 20rpx;
-  background: #F6F0E4;
-  font-size: 26rpx;
-}
-
-/* 语音模式 */
-.call-wrap {
-  background: #FFFDF8;
-  border: 1.5rpx solid #E2D8C2;
-  border-radius: 28rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 230rpx);
-}
-.call-head {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  padding: 18rpx 24rpx;
-  border-bottom: 1.5rpx solid #E2D8C2;
-  background: #EFE6D4;
-}
-.call-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: #F7E3E0;
-  border: 1.5rpx solid #EBC4C1;
-  color: #D64541;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  flex-shrink: 0;
-}
-.call-avatar.ringing { box-shadow: 0 0 0 6rpx rgba(214, 69, 65, 0.25); }
-.call-info { flex: 1; min-width: 0; }
-.call-title-row { display: flex; align-items: center; gap: 14rpx; }
-.call-title {
-  flex: 1;
-  font-size: 27rpx;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.call-actions { display: flex; gap: 12rpx; flex-shrink: 0; }
-.call-mini {
-  padding: 10rpx 22rpx;
-  border-radius: 999rpx;
-  font-size: 23rpx;
-  font-weight: 700;
-  color: #fff;
-}
-.call-mini.talk { background: #4C8A5C; }
-.call-mini.talk.listening { background: #C98A2D; }
-.call-mini.end { background: #D64541; }
-.call-status {
-  font-size: 21rpx;
-  color: #6E675A;
-  margin-top: 6rpx;
-  display: flex;
-  align-items: center;
-}
-.call-status .dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-  background: #4C8A5C;
-  margin-right: 10rpx;
-}
-.call-status .dot.live { animation: pulseDot 1.2s infinite; }
-.call-clear {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 24rpx;
-  color: #A69C89;
-  padding: 8rpx 20rpx;
-  border: 1.5rpx solid #E2D8C2;
-  border-radius: 999rpx;
-  background: #FFFDF8;
-}
-@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-.call-timer {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #6E675A;
-  flex-shrink: 0;
-}
-
-.call-body { flex: 1; min-height: 0; padding: 24rpx 28rpx; }
-.call-stage { display: flex; flex-direction: column; align-items: center; gap: 14rpx; padding: 20rpx 0 30rpx; }
-.wave-row { display: flex; align-items: center; gap: 10rpx; height: 60rpx; }
-.wave-row .bar {
-  width: 8rpx;
-  border-radius: 6rpx;
-  background: #3B6EA5;
-  animation: waveMove 1s ease-in-out infinite;
-}
-.wave-row .b1 { height: 20rpx; }
-.wave-row .b2 { height: 36rpx; animation-delay: 0.1s; }
-.wave-row .b3 { height: 52rpx; animation-delay: 0.2s; }
-.wave-row .b4 { height: 36rpx; animation-delay: 0.3s; }
-.wave-row .b5 { height: 20rpx; animation-delay: 0.4s; }
-.wave-row.static .bar { animation: none; background: #CFC2A6; }
-@keyframes waveMove { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
-.stage-hint { font-size: 24rpx; color: #6E675A; }
-.stage-hint .b { color: #2B2A26; font-weight: 700; }
-
-.call-bubble {
-  max-width: 88%;
-  padding: 20rpx 26rpx;
-  border-radius: 24rpx;
-  font-size: 27rpx;
-  line-height: 1.8;
-  margin-bottom: 20rpx;
-}
-.call-bubble.ai {
-  align-self: flex-start;
-  background: #EFE6D4;
-  border: 1.5rpx solid #E2D8C2;
-  border-top-left-radius: 6rpx;
-}
-.call-bubble.user {
-  align-self: flex-end;
-  background: #3B6EA5;
-  color: #fff;
-  border-top-right-radius: 6rpx;
-}
-.cb-tag { display: block; font-size: 19rpx; font-weight: 700; opacity: 0.6; margin-bottom: 6rpx; }
-
-.engine-bar {
+/* 底部输入栏（微信聊天式：语音/键盘切换） */
+.input-bar {
   display: flex;
   align-items: center;
   gap: 14rpx;
-  padding: 14rpx 28rpx;
-  background: #EFE6D4;
-  border-top: 1.5rpx solid #E2D8C2;
-  font-size: 21rpx;
-  color: #6E675A;
-}
-.engine-badge { font-weight: 700; padding: 4rpx 14rpx; border-radius: 8rpx; background: #E3EDF7; color: #3B6EA5; }
-
-/* 底部麦克风按钮（仅一个：按住说话） */
-.mic-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10rpx;
-  padding: 18rpx 0 30rpx;
-  border-top: 1.5rpx solid #E2D8C2;
+  padding: 16rpx 20rpx;
   background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-top: none;
+  border-radius: 0 0 28rpx 28rpx;
+  flex-shrink: 0;
 }
-.mic-hint { font-size: 22rpx; color: #A69C89; }
-.mic-row {
+.input-mode-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #F6F0E4;
+  border: 1.5rpx solid #E2D8C2;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.mic-btn {
-  width: 320rpx;
-  height: 112rpx;
+.input-mode-btn.on { background: #E3EDF7; border-color: #BBD2E8; }
+.im-icon { font-size: 34rpx; line-height: 1; }
+.input-box {
+  flex: 1;
+  min-width: 0;
+  padding: 20rpx 26rpx;
+  border: 1.5rpx solid #CFC2A6;
+  border-radius: 999rpx;
+  background: #F6F0E4;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+.input-ph { color: #A69C89; font-size: 27rpx; }
+.send-btn {
+  flex-shrink: 0;
+  padding: 20rpx 34rpx;
+  border-radius: 999rpx;
+  background: #3B6EA5;
+  color: #fff;
+  font-size: 27rpx;
+  font-weight: 700;
+  border: none;
+  line-height: 1;
+}
+.send-btn::after { border: none; }
+.ptt-btn {
+  flex: 1;
+  height: 84rpx;
   border-radius: 999rpx;
   display: flex;
   align-items: center;
@@ -312,28 +191,16 @@
   font-weight: 700;
   color: #fff;
   letter-spacing: 2rpx;
-  border: none;
-  transition: all 0.15s;
-}
-.mic-btn {
   background: #4C8A5C;
   box-shadow: 0 6rpx 24rpx rgba(76, 138, 92, 0.35);
 }
-.mic-btn.paused {
+.ptt-btn.paused {
   background: #D64541;
   box-shadow: 0 6rpx 24rpx rgba(214, 69, 65, 0.4);
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
-.mic-btn.start {
-  width: 320rpx;
-  background: #4C8A5C;
-}
-.mic-icon {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 2rpx;
-}
+.ptt-btn.start { background: #3B6EA5; box-shadow: 0 6rpx 24rpx rgba(59, 110, 165, 0.35); }
+.ptt-btn:active { opacity: 0.85; }
 
 /* 通话后掌握标记面板 */
 .mask {
