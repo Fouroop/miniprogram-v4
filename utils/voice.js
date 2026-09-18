@@ -58,8 +58,13 @@ function createStreamingPlayer(opts) {
   var muted = false;
 
   var CHUNK_SAMPLES = 8192;            // ~186ms@44.1k
-  var HEADROOM_SEC = 0.05;             // 调度预缓冲 50ms（相对时间）
+  var HEADROOM_SEC = 0.05;             // 首块预缓冲 50ms
   var START_THRESHOLD_SEC = 0.12;      // 首包启动阈值 120ms（防首帧杂音/断裂）
+  var MAX_INFLIGHT = 2;                // 预调度块数：保持 2 块在飞 → 连续时间线、块间零间隙（消除卡顿）
+  var nextStartTime = 0;               // 下一块应开始的时间（连续时间线基准）
+  var timeBaseSet = false;             // 时间线基准是否已建立
+
+  function resetTimeBase() { timeBaseSet = false; nextStartTime = 0; }
 
   // iOS 微信 WebAudioContext 未解锁状态：suspended / interrupted / default；仅 running 真正出声
   function isLocked(s) { return s === 'suspended' || s === 'interrupted' || s === 'default'; }
@@ -91,66 +96,80 @@ function createStreamingPlayer(opts) {
   function emitPlay(on) { if (opts && opts.onPlay) opts.onPlay(on); }
   function endSession() { announcing = false; emitPlay(false); }
 
-  // Scheduler：链式调度下一块（相对时间，永不追赶）
-  function scheduleNext() {
-    if (playing) return;
+  // Scheduler：预调度（保持 MAX_INFLIGHT 块在飞，连续时间线、块间零间隙）
+  // 时间线基准：首块 currentTime+HEADROOM，后续块紧接上一块末尾；仅 underrun 落后时小补偿一次
+  function pump() {
     var a = ensureAc();
     if (isLocked(a.state)) return;                 // 未解锁：等手势 retry()/unlock()
-    if (playCursor >= sampleBuf.length) return;    // 无待播数据：等 enqueue
-    var avail = sampleBuf.length - playCursor;
-    var chunkLen = Math.min(CHUNK_SAMPLES, avail);
-    var chunk = sampleBuf.subarray(playCursor, playCursor + chunkLen);
-    playCursor += chunkLen;
-    // 诊断 Output RMS
-    if (opts && opts.onDiag) {
-      try {
-        var sum = 0;
-        for (var i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
-        opts.onDiag(Math.sqrt(sum / chunk.length));
-      } catch (e) {}
-    }
-    var buf = a.createBuffer(1, chunkLen, a.sampleRate);
-    buf.getChannelData(0).set(chunk);
-    var src = a.createBufferSource();
-    src.buffer = buf;
-    var gain = ensureGain();
-    src.connect(gain || a.destination);
-    var atTime = a.currentTime + HEADROOM_SEC;
-    src.start(atTime);
-    scheduledSources.push(src);
-    playing = true;
-    if (!announcing) { announcing = true; emitPlay(true); } // 会话开始（仅一次）
-    src.onended = function () {
-      var idx = scheduledSources.indexOf(src);
-      if (idx >= 0) scheduledSources.splice(idx, 1);
-      playing = false;
-      if (flushPending && playCursor >= sampleBuf.length) {
-        flushPending = false;
-        clearBuf();
-        endSession();
-        return;
+    while (scheduledSources.length < MAX_INFLIGHT && playCursor < sampleBuf.length) {
+      var avail = sampleBuf.length - playCursor;
+      var chunkLen = Math.min(CHUNK_SAMPLES, avail);
+      var chunk = sampleBuf.subarray(playCursor, playCursor + chunkLen);
+      playCursor += chunkLen;
+      // 诊断 Output RMS
+      if (opts && opts.onDiag) {
+        try {
+          var sum = 0;
+          for (var i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+          opts.onDiag(Math.sqrt(sum / chunk.length));
+        } catch (e) {}
       }
-      if (playCursor >= sampleBuf.length) { endSession(); return; } // 缓冲耗尽
-      scheduleNext(); // 链式续播（不触发 onPlay 变化）
-    };
-    // 兜底：onended 切后台等可能不触发 → 按时长+1s 强制推进
-    (function (s, durMs) {
-      setTimeout(function () {
-        var i = scheduledSources.indexOf(s);
-        if (i >= 0) {
-          scheduledSources.splice(i, 1);
-          playing = false;
-          if (flushPending && playCursor >= sampleBuf.length) {
-            flushPending = false;
-            clearBuf();
-            endSession();
-            return;
-          }
-          if (playCursor >= sampleBuf.length) { endSession(); return; }
-          scheduleNext();
+      var buf = a.createBuffer(1, chunkLen, a.sampleRate);
+      buf.getChannelData(0).set(chunk);
+      var src = a.createBufferSource();
+      src.buffer = buf;
+      var gain = ensureGain();
+      src.connect(gain || a.destination);
+      if (!timeBaseSet) {
+        timeBaseSet = true;
+        nextStartTime = a.currentTime + HEADROOM_SEC;
+      } else {
+        nextStartTime += chunkLen / a.sampleRate; // 紧接上一块末尾 → 零间隙
+      }
+      if (nextStartTime < a.currentTime) {
+        // underrun 落后（onended 延迟/网络断）：只补偿一次，不累积
+        nextStartTime = a.currentTime + 0.03;
+      }
+      src.start(nextStartTime);
+      scheduledSources.push(src);
+      playing = true;
+      if (scheduledSources.length === 1 && !announcing) { announcing = true; emitPlay(true); } // 会话开始（仅一次）
+      src.onended = function () {
+        var idx = scheduledSources.indexOf(src);
+        if (idx >= 0) scheduledSources.splice(idx, 1);
+        if (flushPending && scheduledSources.length === 0 && playCursor >= sampleBuf.length) {
+          flushPending = false;
+          clearBuf();
+          resetTimeBase();
+          endSession();
+          return;
         }
-      }, durMs + 1000);
-    })(src, Math.round(chunkLen / a.sampleRate * 1000));
+        pump(); // 补块（保持 2 块在飞）
+        if (scheduledSources.length === 0 && playCursor >= sampleBuf.length) {
+          endSession(); // 缓冲耗尽，本轮播完
+        }
+      };
+      // 兜底：onended 切后台等可能不触发 → 按时长+1s 强制推进
+      (function (s, durMs) {
+        setTimeout(function () {
+          var i = scheduledSources.indexOf(s);
+          if (i >= 0) {
+            scheduledSources.splice(i, 1);
+            if (flushPending && scheduledSources.length === 0 && playCursor >= sampleBuf.length) {
+              flushPending = false;
+              clearBuf();
+              resetTimeBase();
+              endSession();
+              return;
+            }
+            pump();
+            if (scheduledSources.length === 0 && playCursor >= sampleBuf.length) {
+              endSession();
+            }
+          }
+        }, durMs + 1000);
+      })(src, Math.round(chunkLen / a.sampleRate * 1000));
+    }
   }
 
   // 解锁后启动（sync=手势内同步 / async=网络回调）
@@ -166,19 +185,19 @@ function createStreamingPlayer(opts) {
         }
       }
     } else {
-      scheduleNext();
+      pump();
     }
   }
 
   function waitRunningThenPlay() {
     var a = ensureAc();
-    if (!isLocked(a.state)) { scheduleNext(); return; }
+    if (!isLocked(a.state)) { pump(); return; }
     var tries = 0;
     var t = setInterval(function () {
       tries++;
       if (!isLocked(ensureAc().state) || tries >= 20) {
         clearInterval(t);
-        scheduleNext();
+        pump();
       }
     }, 50);
   }
@@ -199,20 +218,21 @@ function createStreamingPlayer(opts) {
       if (opts && opts.onChunk) opts.onChunk(sampleBuf.length - playCursor);
       if (muted) return;
       if (isLocked(a.state)) return; // 未解锁：等手势 unlock/retry
-      if (!playing && (sampleBuf.length - playCursor) >= Math.floor(a.sampleRate * START_THRESHOLD_SEC)) {
-        scheduleNext(); // 首包攒够启动阈值再播（防首帧杂音）
+      if ((sampleBuf.length - playCursor) >= Math.floor(a.sampleRate * START_THRESHOLD_SEC)) {
+        pump(); // 首包攒够启动阈值再播（防首帧杂音）；后续包由 pump 预调度续播
       }
     },
     flush() {
       // 本轮结束：播完当前缓冲后清空（跨轮不残留，防下一轮开头混入旧数据）
       if (playCursor >= sampleBuf.length) { clearBuf(); return; }
       flushPending = true;
-      if (!playing) scheduleNext();
+      pump();
     },
     interrupt() {
       scheduledSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
       scheduledSources = [];
       clearBuf();
+      resetTimeBase();
       playing = false;
       flushPending = false;
       endSession();
@@ -228,15 +248,15 @@ function createStreamingPlayer(opts) {
       if (!muted) {
         var a = ensureAc();
         if (isLocked(a.state) && a.resume) { try { a.resume(); } catch (e) {} }
-        if (!playing && playCursor < sampleBuf.length) scheduleNext();
+        pump();
       }
     },
     retry() {
       var a = ensureAc();
       if (isLocked(a.state)) {
         if (a.resume) { try { a.resume(); } catch (e) {} waitRunningThenPlay(); }
-      } else if (!playing && playCursor < sampleBuf.length) {
-        scheduleNext();
+      } else {
+        pump();
       }
     },
     setVolume(v) { volume = v; if (gainNode) try { gainNode.gain.value = v; } catch (e) {} },
@@ -245,6 +265,7 @@ function createStreamingPlayer(opts) {
       scheduledSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
       scheduledSources = [];
       clearBuf();
+      resetTimeBase();
       playing = false;
       flushPending = false;
       if (ownsAc) try { if (ac) ac.close(); } catch (e) {}
