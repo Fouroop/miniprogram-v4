@@ -8,6 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true }));
+// 虚拟支付发货推送是 XML（text/xml），用文本解析拿到原始 XML
+app.use(express.text({ type: ['text/xml', 'application/xml'] }));
 
 // 统一返回格式 { ok, data, error }
 app.use((req, res, next) => {
@@ -26,6 +28,10 @@ app.use('/api/vip', require('./routes/vip'));
 app.use('/api/voice', require('./routes/voice'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/my', require('./routes/api_access'));
+// 个人虚拟支付（发货推送无鉴权，须先于 /api/vpay 挂载）
+const vpay = require('./routes/vpay');
+app.use('/api/vpay/notify', vpay.notifyRouter);
+app.use('/api/vpay', vpay.router);
 app.use('/api/knowledge', require('./routes/knowledge'));
 app.use('/api/admin', require('./routes/admin'));
 

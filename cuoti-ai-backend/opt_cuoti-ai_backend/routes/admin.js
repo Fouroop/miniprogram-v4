@@ -579,6 +579,49 @@ router.get('/voice/wxpay/orders', async (req, res) => {
   res.json({ ok: true, data: { list: rows, total: total[0].c, page: p, size: s } });
 });
 
+// ---------- 个人虚拟支付配置（读取，脱敏） ----------
+router.get('/vpay/config', async (req, res) => {
+  const vpay = require('./vpay');
+  const cfg = await vpay.getConfig();
+  if (!cfg) return res.json({ ok: true, data: null });
+  res.json({
+    ok: true,
+    data: {
+      offer_id: cfg.offer_id,
+      appid: cfg.appid,
+      appkey_mask: cfg.appkey ? maskKey(cfg.appkey) : '',
+      appsecret_mask: cfg.appsecret ? maskKey(cfg.appsecret) : '',
+      product_single: cfg.product_single || '',
+      product_monthly: cfg.product_monthly || '',
+      product_yearly: cfg.product_yearly || '',
+      notify_url: 'https://zblw.com.cn/cuoti/api/vpay/notify',
+      configured: true
+    }
+  });
+});
+
+// ---------- 个人虚拟支付配置（保存） ----------
+router.put('/vpay/config', async (req, res) => {
+  const vpay = require('./vpay');
+  const { offer_id, appid, appkey, appsecret, product_single, product_monthly, product_yearly } = req.body;
+  if (!offer_id || !appid) {
+    await pool.query("DELETE FROM settings WHERE key_name='vpay_config'");
+    return res.json({ ok: true, disabled: true });
+  }
+  const old = await vpay.getConfig();
+  const cfg = {
+    offer_id, appid,
+    appkey: (appkey && !String(appkey).includes('****')) ? appkey : (old ? old.appkey : ''),
+    appsecret: (appsecret && !String(appsecret).includes('****')) ? appsecret : (old ? old.appsecret : ''),
+    product_single: product_single || '',
+    product_monthly: product_monthly || '',
+    product_yearly: product_yearly || ''
+  };
+  if (!cfg.appkey) return res.json({ ok: false, error: '现网AppKey 必填（重填时保留****）' });
+  await vpay.setConfig(cfg);
+  res.json({ ok: true });
+});
+
 // ---------- 工具 ----------
 function maskKey(k) {
   if (!k) return '';
