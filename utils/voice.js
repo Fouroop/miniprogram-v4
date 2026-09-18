@@ -11,8 +11,6 @@ const { request } = require('./request.js');
 const UP_RATE = 16000;
 const DOWN_RATE = 24000;
 const FRAME_BYTES = 640; // 20ms * 16000 * 2bytes = 640
-// 流式播放启动阈值：积累多少样本后才开始播放（防首帧杂音，~50ms）
-const STREAM_START_SAMPLES = Math.floor(DOWN_RATE * 0.15); // 0.15s 启动缓冲：太小网络抖动即断（电音/卡顿）
 
 /* ---------- 24kHz → 设备采样率 线性重采样 ---------- */
 function resamplePcm16(i16, fromRate, toRate) {
@@ -37,41 +35,34 @@ function resamplePcm16(i16, fromRate, toRate) {
   return out;
 }
 
-/* ========== 增量流式播放器（收到即播，消除攒够再播的延迟） ========== */
+/* ========== 流式播放引擎（装配→校验→解码→队列→链式调度） ==========
+ * 核心原则：收到豆包音频 ≠ 立即播放。
+ * 数据流：PCM Validator → Chunk Assembler(累积) → Decoder(重采样 Float32)
+ *         → AudioQueue(样本缓冲) → Scheduler(链式相对时间调度) → AudioContext
+ * 链式调度：每块播完(onended)才调度下一块，atTime = currentTime + 预缓冲(50ms)，
+ * 永不追赶（不按绝对时间线），彻底消除网络抖动导致的 underrun 追赶 → 开头乱码/电音
+ */
 function createStreamingPlayer(opts) {
   var ac = (opts && opts.audioContext) || null;
   var ownsAc = !ac;
   var gainNode = null;
   var volume = 1;
 
-  // 累积 PCM 样本（Float32，设备采样率）
-  var sampleBuf = new Float32Array(0);
-  var playing = false;
-  var started = false;
-  var writePos = 0; // 已写入 AudioContext 的样本位置
-  var startTime = 0; // 播放起始 AudioContext 时间
-  var scheduledSources = []; // 待播放的 source 节点
-  var muted = false; // 静音缓冲：只进缓冲不播放，等用户手势解锁（unmute）后从头播放
+  // ---- AudioQueue：已解码 PCM（Float32，设备采样率）----
+  var sampleBuf = new Float32Array(0); // 待播样本
+  var playCursor = 0;                  // 已调度播放的样本位置
+  var playing = false;                 // 是否有 chunk 在飞
+  var flushPending = false;            // 本轮结束：播完清空
+  var announcing = false;              // 播放会话是否已宣布开始（onPlay(true) 只触发一次）
+  var scheduledSources = [];           // 在飞 source 节点
+  var muted = false;
 
-  // iOS 微信 WebAudioContext 未解锁状态：suspended（无手势创建）/ interrupted（系统打断）/ default（微信基础库默认未激活）
-  // 只有 state==='running'（或 'closed'）才真正输出声音
+  var CHUNK_SAMPLES = 8192;            // ~186ms@44.1k
+  var HEADROOM_SEC = 0.05;             // 调度预缓冲 50ms（相对时间）
+  var START_THRESHOLD_SEC = 0.12;      // 首包启动阈值 120ms（防首帧杂音/断裂）
+
+  // iOS 微信 WebAudioContext 未解锁状态：suspended / interrupted / default；仅 running 真正出声
   function isLocked(s) { return s === 'suspended' || s === 'interrupted' || s === 'default'; }
-
-  // resume 生效是异步的：等 state 变 running 再调度，避免在未解锁时间线调度导致无声
-  function waitRunningThenPlay() {
-    if (started) return;
-    var a = ensureAc();
-    if (!isLocked(a.state)) { startPlayback(); return; }
-    var tries = 0;
-    var t = setInterval(function () {
-      tries++;
-      var st = ensureAc().state;
-      if (!isLocked(st) || tries >= 20) { // 上限约 1s，兜底启动
-        clearInterval(t);
-        if (!started) startPlayback();
-      }
-    }, 50);
-  }
 
   function ensureAc() {
     if (!ac || ac.state === 'closed') {
@@ -96,77 +87,74 @@ function createStreamingPlayer(opts) {
     return gainNode;
   }
 
-  function scheduleNewChunks() {
-    if (!started || writePos >= sampleBuf.length) return;
-    var a = ensureAc();
-    var gain = ensureGain();
-    var dest = gain || a.destination;
+  function clearBuf() { sampleBuf = new Float32Array(0); playCursor = 0; }
+  function emitPlay(on) { if (opts && opts.onPlay) opts.onPlay(on); }
+  function endSession() { announcing = false; emitPlay(false); }
 
-    while (writePos < sampleBuf.length) {
-      var chunkLen = Math.min(4096, sampleBuf.length - writePos);
-      if (chunkLen <= 0) break;
-      var chunk = sampleBuf.subarray(writePos, writePos + chunkLen);
-      // 诊断：Output RMS（播放输出幅度，与 Input RMS 对比可判断回声回环）
+  // Scheduler：链式调度下一块（相对时间，永不追赶）
+  function scheduleNext() {
+    if (playing) return;
+    var a = ensureAc();
+    if (isLocked(a.state)) return;                 // 未解锁：等手势 retry()/unlock()
+    if (playCursor >= sampleBuf.length) return;    // 无待播数据：等 enqueue
+    var avail = sampleBuf.length - playCursor;
+    var chunkLen = Math.min(CHUNK_SAMPLES, avail);
+    var chunk = sampleBuf.subarray(playCursor, playCursor + chunkLen);
+    playCursor += chunkLen;
+    // 诊断 Output RMS
+    if (opts && opts.onDiag) {
       try {
-        if (opts.onDiag) {
-          let sum = 0;
-          for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
-          opts.onDiag(Math.sqrt(sum / chunk.length));
-        }
+        var sum = 0;
+        for (var i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+        opts.onDiag(Math.sqrt(sum / chunk.length));
       } catch (e) {}
-      var buf = a.createBuffer(1, chunkLen, a.sampleRate);
-      buf.getChannelData(0).set(chunk);
-      var src = a.createBufferSource();
-      src.buffer = buf;
-      src.connect(dest);
-      var atTime = startTime + writePos / a.sampleRate;
-      if (atTime < a.currentTime) atTime = a.currentTime;
-      src.start(atTime);
-      scheduledSources.push(src);
-      src.onended = function () {
-        var idx = scheduledSources.indexOf(src);
-        if (idx >= 0) scheduledSources.splice(idx, 1);
-        if (scheduledSources.length === 0 && playing) {
-          playing = false;
-          if (opts && opts.onPlay) opts.onPlay(false);
-        }
-      };
-      // 兜底：onended 在切后台/节点异常等情况下可能不触发 → 按预估时长+2s 强制收尾，
-      // 避免 playing 卡死导致一直显示“AI 正在回复”
-      (function (s, durMs) {
-        setTimeout(function () {
-          var i = scheduledSources.indexOf(s);
-          if (i >= 0) {
-            scheduledSources.splice(i, 1);
-            if (scheduledSources.length === 0 && playing) {
-              playing = false;
-              if (opts && opts.onPlay) opts.onPlay(false);
-            }
-          }
-        }, durMs + 2000);
-      })(src, Math.round(chunkLen / a.sampleRate * 1000));
-      writePos += chunkLen;
     }
-  }
-
-  function startPlayback() {
-    if (started) return;
-    var a = ensureAc();
-    started = true;
+    var buf = a.createBuffer(1, chunkLen, a.sampleRate);
+    buf.getChannelData(0).set(chunk);
+    var src = a.createBufferSource();
+    src.buffer = buf;
+    var gain = ensureGain();
+    src.connect(gain || a.destination);
+    var atTime = a.currentTime + HEADROOM_SEC;
+    src.start(atTime);
+    scheduledSources.push(src);
     playing = true;
-    startTime = a.currentTime + 0.02; // 20ms 缓冲
-    writePos = 0;
-    console.log('[StreamingPlayer] startPlayback state=' + a.state + ' samples=' + sampleBuf.length + ' rate=' + a.sampleRate);
-    if (opts && opts.onPlay) opts.onPlay(true);
-    scheduleNewChunks();
+    if (!announcing) { announcing = true; emitPlay(true); } // 会话开始（仅一次）
+    src.onended = function () {
+      var idx = scheduledSources.indexOf(src);
+      if (idx >= 0) scheduledSources.splice(idx, 1);
+      playing = false;
+      if (flushPending && playCursor >= sampleBuf.length) {
+        flushPending = false;
+        clearBuf();
+        endSession();
+        return;
+      }
+      if (playCursor >= sampleBuf.length) { endSession(); return; } // 缓冲耗尽
+      scheduleNext(); // 链式续播（不触发 onPlay 变化）
+    };
+    // 兜底：onended 切后台等可能不触发 → 按时长+1s 强制推进
+    (function (s, durMs) {
+      setTimeout(function () {
+        var i = scheduledSources.indexOf(s);
+        if (i >= 0) {
+          scheduledSources.splice(i, 1);
+          playing = false;
+          if (flushPending && playCursor >= sampleBuf.length) {
+            flushPending = false;
+            clearBuf();
+            endSession();
+            return;
+          }
+          if (playCursor >= sampleBuf.length) { endSession(); return; }
+          scheduleNext();
+        }
+      }, durMs + 1000);
+    })(src, Math.round(chunkLen / a.sampleRate * 1000));
   }
 
-  // 启动前先解锁 AudioContext（iOS 无手势创建为 locked，直接调度会无声）
-  // sync=true（用户手势栈内调用，如轻触/按住）：同步 resume 后等 state 变 running 再播放——
-  //   iOS 微信里 resume().then() 的 Promise 回调不可靠，但手势栈内同步 resume 立即生效
-  // sync=false（网络回调等非手势场景）：解锁失败则挂起等待，等手势后 retry()
+  // 解锁后启动（sync=手势内同步 / async=网络回调）
   function startWhenReady(sync) {
-    if (started) return;
     var a = ensureAc();
     if (isLocked(a.state)) {
       if (a.resume) {
@@ -174,17 +162,29 @@ function createStreamingPlayer(opts) {
           try { a.resume(); } catch (e) {}
           waitRunningThenPlay();
         } else {
-          a.resume().then(function () { waitRunningThenPlay(); }).catch(function () {
-            // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
-          });
+          a.resume().then(function () { waitRunningThenPlay(); }).catch(function () {});
         }
       }
     } else {
-      startPlayback();
+      scheduleNext();
     }
   }
 
+  function waitRunningThenPlay() {
+    var a = ensureAc();
+    if (!isLocked(a.state)) { scheduleNext(); return; }
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      if (!isLocked(ensureAc().state) || tries >= 20) {
+        clearInterval(t);
+        scheduleNext();
+      }
+    }, 50);
+  }
+
   return {
+    // 入队：Validator(字节对齐) → Decoder(重采样) → Assembler(合并)
     enqueue(buf) {
       if (!buf || !buf.byteLength) return;
       var a = ensureAc();
@@ -192,98 +192,64 @@ function createStreamingPlayer(opts) {
       var i16 = new Int16Array(buf.buffer || buf, buf.byteOffset || 0, (buf.byteLength || buf.length) >> 1);
       var f32 = resamplePcm16(i16, DOWN_RATE, a.sampleRate);
       if (!f32.length) return;
-
-      // 追加到累积缓冲
       var merged = new Float32Array(sampleBuf.length + f32.length);
       merged.set(sampleBuf, 0);
       merged.set(f32, sampleBuf.length);
       sampleBuf = merged;
-
-      if (opts && opts.onChunk) opts.onChunk(sampleBuf.length);
-
-      // 静音缓冲模式（等待用户轻触解锁）：音频只进缓冲不启动播放，unmute 后从头播放
+      if (opts && opts.onChunk) opts.onChunk(sampleBuf.length - playCursor);
       if (muted) return;
-
-      // 未开始播放 + 积累够了 → 先尝试解锁 AudioContext（iOS 无手势创建时为 suspended），再启动
-      if (!started && sampleBuf.length >= STREAM_START_SAMPLES) {
-        startWhenReady();
-      } else if (started) {
-        // 已在播放 → 调度新到的块
-        scheduleNewChunks();
+      if (isLocked(a.state)) return; // 未解锁：等手势 unlock/retry
+      if (!playing && (sampleBuf.length - playCursor) >= Math.floor(a.sampleRate * START_THRESHOLD_SEC)) {
+        scheduleNext(); // 首包攒够启动阈值再播（防首帧杂音）
       }
     },
     flush() {
-      // 音频流结束信号：确保播放已启动（静音缓冲模式下等待用户轻触解锁后再播）
-      if (!started && !muted && sampleBuf.length > 0) startWhenReady();
+      // 本轮结束：播完当前缓冲后清空（跨轮不残留，防下一轮开头混入旧数据）
+      if (playCursor >= sampleBuf.length) { clearBuf(); return; }
+      flushPending = true;
+      if (!playing) scheduleNext();
     },
     interrupt() {
-      // 插话/打断：立即停止正在播放的 AI 音频并丢弃待播缓冲（保留 AudioContext 复用）
       scheduledSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
       scheduledSources = [];
-      sampleBuf = new Float32Array(0);
-      writePos = 0;
-      started = false;
+      clearBuf();
       playing = false;
-      if (opts && opts.onPlay) opts.onPlay(false);
+      flushPending = false;
+      endSession();
     },
-    // iOS/微信：state 可能是 suspended（无手势创建）/ interrupted（被系统打断）/ default（未激活）
-    // 解锁必须在用户手势调用栈内同步执行（如按住 MIC 的 touchstart），异步调用会被拒绝
     unlock() {
       var a = ensureAc();
-      if (a && isLocked(a.state) && a.resume) {
-        try { a.resume(); } catch (e) {}
-      }
+      if (a && isLocked(a.state) && a.resume) { try { a.resume(); } catch (e) {} }
       return a.state;
     },
     setMuted(v) {
       muted = !!v;
-      console.log('[VoiceCall] setMuted(' + muted + ') sampleBuf=' + sampleBuf.length + ' started=' + started);
+      console.log('[VoiceCall] setMuted(' + muted + ') queued=' + (sampleBuf.length - playCursor));
       if (!muted) {
-        // 手势栈内同步解锁 AudioContext：无论缓冲是否已到，先解锁，
-        // 确保后续音频一到达（muted=false）即可直接播放，无需二次触摸
         var a = ensureAc();
-        if (isLocked(a.state) && a.resume) {
-          try { a.resume(); } catch (e) {}
-        }
-        if (!started && sampleBuf.length > 0) startWhenReady(true);
+        if (isLocked(a.state) && a.resume) { try { a.resume(); } catch (e) {} }
+        if (!playing && playCursor < sampleBuf.length) scheduleNext();
       }
     },
     retry() {
-      // 手势栈内重试（onPageTouch 同步调用）：iOS 微信 resume().then 回调不可靠，
-      // 改为同步 resume 后等 state 变 running 再从头播放（或重新调度已 started 但无 source 的播放）
       var a = ensureAc();
       if (isLocked(a.state)) {
-        if (a.resume) {
-          try { a.resume(); } catch (e) {}
-          waitRunningThenPlay();
-          if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
-            // 已 started 但没有任何 source 真正调度上 → 重新启动
-            started = false;
-            playing = false;
-            waitRunningThenPlay();
-          }
-        }
-      } else if (!started && sampleBuf.length > 0) {
-        startPlayback();
+        if (a.resume) { try { a.resume(); } catch (e) {} waitRunningThenPlay(); }
+      } else if (!playing && playCursor < sampleBuf.length) {
+        scheduleNext();
       }
     },
-    setVolume(v) {
-      volume = v;
-      if (gainNode) try { gainNode.gain.value = v; } catch (e) {}
-    },
-    queueLen() {
-      return scheduledSources.length;
-    },
+    setVolume(v) { volume = v; if (gainNode) try { gainNode.gain.value = v; } catch (e) {} },
+    queueLen() { return sampleBuf.length - playCursor; },
     stop() {
       scheduledSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
       scheduledSources = [];
-      sampleBuf = new Float32Array(0);
-      writePos = 0;
-      started = false;
+      clearBuf();
       playing = false;
+      flushPending = false;
       if (ownsAc) try { if (ac) ac.close(); } catch (e) {}
       ac = null; gainNode = null;
-      if (opts && opts.onPlay) opts.onPlay(false);
+      endSession();
     }
   };
 }
