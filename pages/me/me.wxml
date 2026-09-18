@@ -41,6 +41,14 @@
   <!-- 设置 -->
   <view class="card">
     <view class="section-title">设置</view>
+    <view class="set-row" bindtap="openAiConnect">
+      <view class="set-icon green">AI</view>
+      <view class="set-label">
+        <text class="set-label-t">连接 AI（个人授权码）</text>
+        <text class="set-label-s">复制提示词给豆包，让 AI 读写你的错题和题库</text>
+      </view>
+      <view class="set-arrow">›</view>
+    </view>
     <view class="set-row" bindtap="clearLocalData">
       <view class="set-icon red">清</view>
       <view class="set-label">清除本地缓存</view>
@@ -55,6 +63,33 @@
 
   <button class="btn btn-ghost btn-block" style="margin-top:30rpx" bindtap="logout">退出登录</button>
   <view class="bottom-space"></view>
+
+  <!-- 连接 AI 弹层 -->
+  <view class="edit-mask" wx:if="{{showAiConnect}}" bindtap="cancelAiConnect">
+    <view class="edit-card ai-card" catchtap="noop">
+      <view class="edit-title">连接 AI（个人授权码）</view>
+      <view class="ai-tip">授权码可让 AI（豆包等）读写你账号下的错题本、题库和资料。请勿泄露给他人，泄露后可重新生成使旧码失效。</view>
+
+      <view class="ai-token-box">
+        <text class="ai-token-text" user-select>{{apiToken || '生成中…'}}</text>
+        <view class="ai-token-copy" bindtap="copyApiToken" wx:if="{{apiToken}}">复制</view>
+      </view>
+
+      <view class="ai-actions">
+        <view class="ai-btn ghost" bindtap="regenerateApiToken">重新生成</view>
+        <view class="ai-btn primary" bindtap="copyAiPrompt" wx:if="{{apiToken}}">复制提示词</view>
+      </view>
+
+      <view class="ai-prompt-preview" wx:if="{{apiToken}}">
+        <view class="ai-prompt-title">提示词预览（复制给豆包）：</view>
+        <text class="ai-prompt-text" user-select>{{promptPreview}}</text>
+      </view>
+
+      <view class="edit-btns">
+        <button class="btn btn-ghost btn-half" bindtap="cancelAiConnect">关闭</button>
+      </view>
+    </view>
+  </view>
 
   <!-- 编辑资料弹层 -->
   <view class="edit-mask" wx:if="{{showEdit}}" bindtap="cancelEdit">

@@ -26,4 +26,31 @@ function adminAuth(req, res, next) {
   }
 }
 
-module.exports = { userAuth, adminAuth };
+// 个人 API 授权码鉴权（「我的-连接AI」生成）：X-Api-Token 或 Authorization: Bearer cu_xxx
+async function apiTokenAuth(req, res, next) {
+  let token = req.headers['x-api-token'] || '';
+  if (!token) {
+    const h = req.headers.authorization || '';
+    if (h.startsWith('Bearer ')) token = h.slice(7);
+  }
+  token = String(token || '').trim();
+  if (!token || !token.startsWith('cu_')) {
+    return res.status(401).json({ ok: false, error: '缺少有效授权码，请在微信小程序「我的-连接AI」中获取' });
+  }
+  try {
+    const pool = require('../db/pool');
+    const [rows] = await pool.query(
+      'SELECT id, username, nickname, grade, role, is_vip, vip_expire, voice_minutes, voice_expire FROM users WHERE api_token=?',
+      [token]
+    );
+    if (!rows.length) {
+      return res.status(401).json({ ok: false, error: '授权码无效或已失效，请重新生成' });
+    }
+    req.user = rows[0];
+    next();
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: '服务器内部错误' });
+  }
+}
+
+module.exports = { userAuth, adminAuth, apiTokenAuth };

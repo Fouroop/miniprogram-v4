@@ -25,6 +25,7 @@ app.use('/api/ai', require('./routes/ai'));
 app.use('/api/vip', require('./routes/vip'));
 app.use('/api/voice', require('./routes/voice'));
 app.use('/api/user', require('./routes/user'));
+app.use('/api/my', require('./routes/api_access'));
 app.use('/api/knowledge', require('./routes/knowledge'));
 app.use('/api/admin', require('./routes/admin'));
 

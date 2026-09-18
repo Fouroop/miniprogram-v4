@@ -1,9 +1,33 @@
 const express = require('express');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const { userAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(userAuth);
+
+// 生成个人 API 授权码（唯一）
+function genApiToken() {
+  return 'cu_' + crypto.randomBytes(24).toString('hex');
+}
+
+// 查看（无则自动生成）个人 API 授权码
+router.get('/api-token', async (req, res) => {
+  const [rows] = await pool.query('SELECT api_token FROM users WHERE id=?', [req.user.id]);
+  let token = rows[0] && rows[0].api_token;
+  if (!token) {
+    token = genApiToken();
+    await pool.query('UPDATE users SET api_token=? WHERE id=?', [token, req.user.id]);
+  }
+  res.json({ ok: true, data: { token } });
+});
+
+// 重新生成授权码（旧码立即失效）
+router.post('/api-token/regenerate', async (req, res) => {
+  const token = genApiToken();
+  await pool.query('UPDATE users SET api_token=? WHERE id=?', [token, req.user.id]);
+  res.json({ ok: true, data: { token } });
+});
 
 // 更新昵称/年级
 router.put('/profile', async (req, res) => {

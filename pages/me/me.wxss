@@ -146,3 +146,64 @@
 .pc-price { font-size: 48rpx; font-weight: 800; }
 .pc-unit { font-size: 24rpx; color: #6E675A; font-weight: 500; }
 .pc-note { font-size: 22rpx; color: #6E675A; margin-top: 10rpx; }
+
+/* 连接 AI */
+.set-icon.green { background: #E3F7EC; color: #21A366; }
+.set-label-t { display: block; font-size: 29rpx; color: #2B2A26; }
+.set-label-s { display: block; font-size: 22rpx; color: #A69C89; margin-top: 4rpx; }
+.ai-card { max-height: 82vh; overflow-y: auto; }
+.ai-tip { font-size: 24rpx; color: #A69C89; line-height: 1.7; margin-bottom: 22rpx; }
+.ai-token-box {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #F6F0E4;
+  border: 1.5rpx dashed #CFC2A6;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 22rpx;
+}
+.ai-token-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #3B6EA5;
+  word-break: break-all;
+  line-height: 1.6;
+}
+.ai-token-copy {
+  flex-shrink: 0;
+  background: #3B6EA5;
+  color: #fff;
+  font-size: 24rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+}
+.ai-actions { display: flex; gap: 20rpx; margin-bottom: 22rpx; }
+.ai-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+.ai-btn.ghost { background: #F1EBDE; color: #6E675A; }
+.ai-btn.primary { background: #07C160; color: #fff; }
+.ai-prompt-preview {
+  background: #F8F6F0;
+  border-radius: 16rpx;
+  padding: 18rpx;
+  margin-bottom: 22rpx;
+}
+.ai-prompt-title { font-size: 24rpx; color: #6E675A; margin-bottom: 10rpx; }
+.ai-prompt-text {
+  font-size: 22rpx;
+  color: #4A463C;
+  line-height: 1.7;
+  word-break: break-all;
+  display: block;
+  max-height: 320rpx;
+  overflow-y: auto;
+}
