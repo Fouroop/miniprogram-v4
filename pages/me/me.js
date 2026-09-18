@@ -76,7 +76,7 @@ Page({
     const self = this;
     wx.showModal({
       title: '申请开通「' + (p.name || p.plan) + '」',
-      content: '提交后管理员在后台审核，通过后自动发放 ' + (p.minutes || p.quota_mb || '') + ' MB 流量。\n\n加速方式：加管理员微信 ' + (this.data.adminWechat || 'zblw2026') + '，备注你的昵称即可。',
+      content: '提交后管理员在后台审核，通过后自动发放 ' + (p.minutes || p.quota_mb || '') + ' MB 流量。\n\n加速方式：加管理员微信 ' + (this.data.adminWechat || 'rankofour2') + '，备注你的昵称即可。',
       confirmText: '提交申请',
       cancelText: '取消',
       success(r) {
@@ -90,12 +90,12 @@ Page({
             } else {
               wx.showModal({
                 title: '申请已提交',
-                content: '管理员审核通过后会自动发放流量。\n\n可添加管理员微信 ' + (self.data.adminWechat || 'zblw2026') + ' 加速处理。',
+                content: '管理员审核通过后会自动发放流量。\n\n可添加管理员微信 ' + (self.data.adminWechat || 'rankofour2') + ' 加速处理。',
                 confirmText: '复制微信号',
                 cancelText: '知道了',
                 success(r2) {
                   if (r2.confirm) {
-                    wx.setClipboardData({ data: self.data.adminWechat || 'zblw2026' });
+                    wx.setClipboardData({ data: self.data.adminWechat || 'rankofour2' });
                   }
                 }
               });

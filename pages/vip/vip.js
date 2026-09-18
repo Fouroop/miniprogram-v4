@@ -14,7 +14,7 @@ Page({
     plans: [],
     voiceBal: { minutes: 0, status: 'empty', expireText: '' },
     applies: [],
-    adminWechat: 'zblw2026'
+    adminWechat: 'rankofour2'
   },
 
   onShow() {
