@@ -106,6 +106,14 @@ function createStreamingPlayer(opts) {
       var chunkLen = Math.min(4096, sampleBuf.length - writePos);
       if (chunkLen <= 0) break;
       var chunk = sampleBuf.subarray(writePos, writePos + chunkLen);
+      // 诊断：Output RMS（播放输出幅度，与 Input RMS 对比可判断回声回环）
+      try {
+        if (opts.onDiag) {
+          let sum = 0;
+          for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+          opts.onDiag(Math.sqrt(sum / chunk.length));
+        }
+      } catch (e) {}
       var buf = a.createBuffer(1, chunkLen, a.sampleRate);
       buf.getChannelData(0).set(chunk);
       var src = a.createBufferSource();
@@ -263,6 +271,9 @@ function createStreamingPlayer(opts) {
       volume = v;
       if (gainNode) try { gainNode.gain.value = v; } catch (e) {}
     },
+    queueLen() {
+      return scheduledSources.length;
+    },
     stop() {
       scheduledSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
       scheduledSources = [];
@@ -337,8 +348,10 @@ class VoiceCall {
     this._userTextBuf = '';
     this._vadDoneTimer = null;
     // VoiceSession 状态机：IDLE→INITIALIZING→AUDIO_UNLOCKED→CONNECTING→LISTENING→
-    // USER_SPEAKING→AI_SPEAKING→INTERRUPTED→LISTENING→ENDED（所有转换可追踪日志）
+    // USER_SPEAKING→THINKING→AI_SPEAKING→INTERRUPTED→LISTENING→ENDED（所有转换可追踪日志）
     this._state = 'IDLE';
+    // 回声诊断数据（getDiag() 供调试面板读取）
+    this._diag = { inputRms: 0, outputRms: 0, queue: 0, vad: 'SILENCE', micUpload: false, playback: false };
   }
 
   setState(s) {
@@ -348,6 +361,27 @@ class VoiceCall {
     const ts = new Date().toISOString().slice(11, 23);
     console.log('[VoiceCall][' + ts + '][' + (this.callId || '-') + '] state: ' + prev + ' -> ' + s);
     if (this.cb.onState) this.cb.onState(s, prev);
+  }
+
+  /** 回声诊断数据（调试面板） */
+  getDiag() {
+    const playing = this._state === 'AI_SPEAKING';
+    this._diag.vad = this._userSpeaking ? 'SPEECH' : 'SILENCE';
+    this._diag.micUpload = !!(this._micActive && !this._micPaused && !playing);
+    this._diag.playback = playing;
+    this._diag.queue = this.player ? this.player.queueLen() : 0;
+    return {
+      state: this._state,
+      inputRms: this._diag.inputRms || 0,
+      outputRms: this._diag.outputRms || 0,
+      vad: this._diag.vad,
+      micUpload: this._diag.micUpload,
+      playback: this._diag.playback,
+      queue: this._diag.queue,
+      sampleRate: DOWN_RATE,
+      bitDepth: 16,
+      channel: 1
+    };
   }
 
   setCb(key, fn) { this.cb[key] = fn; }
@@ -404,6 +438,7 @@ class VoiceCall {
     this.player = createStreamingPlayer({
       audioContext: audioContext || null,
       onChunk: function (n) { self._emit('onAudioChunk', n); },
+      onDiag: function (rms) { self._diag.outputRms = rms; },
       onPlay: function (on) {
         self._emit('onAiSpeaking', on);
         if (on) {
@@ -550,6 +585,8 @@ class VoiceCall {
       if (txt) this._emit('onUserText', txt);
 
     } else if (t === 'response.output_text.delta') {
+      // AI 开始生成回复 → THINKING（生成/合成中，尚未播放）
+      if (this._state === 'LISTENING' || this._state === 'USER_SPEAKING') this.setState('THINKING');
       const txt = (msg.delta || msg.text || '').trim();
       if (txt) {
         this.aiStream = this._mergeDelta(this.aiStream, txt);
@@ -717,12 +754,20 @@ class VoiceCall {
 
   _appendPcmFrame(buffer) {
     this._framesReceived = true;
-    // 静音保持：AI 播报中/回声保护期 → 上传零幅值帧，维持服务端音频流不中断
+    // 静音保持：AI 播报中/回声保护期/状态机 AI_SPEAKING → 上传零幅值帧，维持服务端音频流不中断
     // （否则服务端报 AudioServerNoAudioInputTooLongError 断开会话，导致重连丢上下文）
-    if (this._micPaused || this._postAiGuard) {
+    // 同时这是"防回环"硬保险：AI 正在说话时绝不把麦克风采到的 AI 声音当用户语音上传
+    if (this._micPaused || this._postAiGuard || this._state === 'AI_SPEAKING') {
       this._sendSilence(buffer.byteLength || FRAME_BYTES);
       return;
     }
+    // 诊断：Input RMS（0~1，判断是否真在收音/是否采到回环）
+    try {
+      const dI16 = new Int16Array(buffer.buffer || buffer, buffer.byteOffset || 0, (buffer.byteLength || 0) >> 1);
+      let sum = 0;
+      for (let i = 0; i < dI16.length; i++) sum += dI16[i] * dI16[i];
+      this._diag.inputRms = Math.sqrt(sum / Math.max(1, dI16.length)) / 32768;
+    } catch (e) {}
     const frame = new Uint8Array(buffer);
     const merged = new Uint8Array(this.pcmCache.length + frame.length);
     merged.set(this.pcmCache, 0);
@@ -867,6 +912,7 @@ class VoiceCall {
     }
     this._micActive = false;
     this._micPaused = true;
+    this.setState('LISTENING'); // 已提交语音，等待 AI 回复（随后 THINKING→AI_SPEAKING）
     if (this.connected && this._ws && this._ws.readyState === 1) {
       this._send({ type: 'input_audio_buffer.commit' });
     }
@@ -946,6 +992,7 @@ class VoiceCall {
       this.socket = null;
     }
     this.aiStream = '';
+    this.setState('ENDED');
   }
 }
 

@@ -36,6 +36,9 @@ Page({
     callOn: false,
     // 第一轮开场白：firstReplyDone=第一轮已说完（此后 PTT 常显可打断）
     firstReplyDone: false,
+    // 回声诊断面板（开发者调试）
+    debugVoice: false,
+    voiceDiag: null,
     connected: false,       // 会话已接通
     callListening: false,   // 麦克风收音中
     micPaused: false,       // 用户按住收音中
@@ -494,6 +497,35 @@ Page({
     else this.clearTextHistory();
   },
 
+  // 回声诊断开关：显示 状态/Input RMS/Output RMS/VAD/麦克风上传/播放/队列/PCM 参数
+  // 排查回环：什么都不说时若 Input RMS 高且 VAD=SPEECH 而 Mic Upload=YES → 正在回采 AI 声音
+  toggleVoiceDebug() {
+    const self = this;
+    const on = !this.data.debugVoice;
+    this.setData({ debugVoice: on });
+    clearInterval(this._diagTimer);
+    if (on) {
+      const refresh = () => {
+        if (!this.voice) { this.setData({ voiceDiag: null }); return; }
+        const d = this.voice.getDiag();
+        this.setData({
+          voiceDiag: [
+            'State: ' + d.state,
+            'Input RMS: ' + d.inputRms.toFixed(3),
+            'Output RMS: ' + d.outputRms.toFixed(3),
+            'VAD: ' + d.vad,
+            'Mic Upload: ' + (d.micUpload ? 'YES' : 'NO'),
+            'Playback: ' + (d.playback ? 'YES' : 'NO'),
+            'Queue: ' + d.queue,
+            'SampleRate: ' + d.sampleRate + ' BitDepth: ' + d.bitDepth + ' Ch: ' + d.channel
+          ]
+        });
+      };
+      refresh();
+      this._diagTimer = setInterval(refresh, 500);
+    }
+  },
+
   // 按住 MIC 按钮 = 插话：AI 正在说话时按住，立即打断 AI 并收音
   onMicTouchStart() {
     wx.vibrateShort({ type: 'medium', fail: function () {} });
@@ -628,6 +660,9 @@ Page({
   },
   stopTimer() { if (this.timerInt) { clearInterval(this.timerInt); this.timerInt = null; } },
 
-  onUnload() { this.hangup(); },
+  onUnload() {
+    clearInterval(this._diagTimer);
+    this.hangup();
+  },
   onHide() { /* 切后台不强制挂断，保持通话 */ }
 });

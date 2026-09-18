@@ -13,6 +13,11 @@
     </view>
   </view>
 
+  <!-- 回声诊断面板（开发者调试） -->
+  <view class="voice-diag" wx:if="{{debugVoice}}">
+    <view class="diag-row" wx:for="{{voiceDiag}}" wx:key="*this">{{item}}</view>
+  </view>
+
   <!-- 题干可折叠 -->
   <view class="stem-strip" wx:if="{{mistake}}" bindtap="toggleStem">
     <view class="stem-head">题干原文 <text class="stem-toggle">{{stemOpen ? '[ 收起 ]' : '[ 展开 ]'}}</text></view>
@@ -38,6 +43,7 @@
 
   <!-- 底部输入栏：微信聊天式（语音 / 键盘切换） -->
   <view class="input-bar">
+    <view class="diag-toggle {{debugVoice ? 'on' : ''}}" bindtap="toggleVoiceDebug">诊</view>
     <view class="input-mode-btn {{inputMode === 'voice' ? 'on' : ''}}" bindtap="toggleInputMode">
       <text class="im-icon">{{inputMode === 'text' ? '🎤' : '⌨️'}}</text>
     </view>
