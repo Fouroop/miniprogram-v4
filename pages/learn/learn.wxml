@@ -98,6 +98,7 @@
     <view class="detail-actions">
       <view class="d-btn ghost" wx:if="{{source === 'question'}}" bindtap="askQuestion">问这道题</view>
       <view class="d-btn ghost" wx:else bindtap="askMistake">AI 辅导</view>
+      <view class="d-btn {{cur.status === '已掌握' ? 'revert' : 'primary'}}" wx:if="{{source === 'mistake'}}" bindtap="toggleMastery">{{cur.status === '已掌握' ? '改为未掌握' : '标记已掌握'}}</view>
       <view class="d-btn primary" wx:if="{{source === 'question'}}" bindtap="addMistake">{{adding ? '加入中…' : '加入错题本'}}</view>
     </view>
   </view>

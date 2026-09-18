@@ -141,7 +141,8 @@
   background: #FFFDF8;
   border-radius: 32rpx 32rpx 0 0;
   z-index: 91;
-  padding: 28rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));
+  /* 底部预留自定义 tabBar 高度，避免按钮被菜单栏遮挡 */
+  padding: 28rpx 30rpx calc(28rpx + env(safe-area-inset-bottom) + 130rpx);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
@@ -173,6 +174,7 @@
 }
 .d-btn.ghost { background: #EFE6D4; color: #6E675A; }
 .d-btn.primary { background: #3B6EA5; color: #fff; }
+.d-btn.revert { background: #FDE4E5; color: #C0392B; }
 
 /* 编辑弹层（题库/错题共用） */
 .editor-panel {
@@ -185,7 +187,8 @@
   z-index: 99;
   transform: translateY(110%);
   transition: transform 0.25s ease;
-  padding: 30rpx 30rpx calc(30rpx + env(safe-area-inset-bottom));
+  /* 底部预留自定义 tabBar 高度 */
+  padding: 30rpx 30rpx calc(30rpx + env(safe-area-inset-bottom) + 130rpx);
 }
 .editor-up { transform: translateY(0); }
 .ep-title { font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }

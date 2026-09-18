@@ -213,6 +213,28 @@ Page({
     this.setData({ showDetail: false });
   },
 
+  // 掌握状态切换：已掌握 ↔ 未掌握
+  toggleMastery() {
+    const m = this.data.cur;
+    if (!m) return;
+    const next = m.status === '已掌握' ? '未掌握' : '已掌握';
+    const mastery = next === '已掌握' ? 'mastered' : 'weak';
+    wx.showLoading({ title: '更新中…' });
+    request('/mistakes/' + m.id + '/mastery', { method: 'POST', data: { mastery } })
+      .then(() => {
+        wx.hideLoading();
+        wx.showToast({ title: next === '已掌握' ? '已标记掌握' : '已改回未掌握', icon: 'none' });
+        this.setData({
+          cur: { ...this.data.cur, status: next },
+          list: this.data.list.map((x) => String(x.id) === String(m.id) ? { ...x, status: next } : x)
+        });
+      })
+      .catch(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+      });
+  },
+
   /* ---------- 编辑 / 删除（题库+错题共用菜单） ---------- */
   onItemMenu() {
     const item = this.data.cur;
