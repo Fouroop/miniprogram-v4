@@ -21,6 +21,7 @@
       <view class="al-status {{item.status === 'approved' ? 'ok' : (item.status === 'rejected' ? 'no' : '')}}">
         {{item.status === 'approved' ? '已通过' : (item.status === 'rejected' ? '已拒绝' : '待审核')}}
       </view>
+      <view class="al-remark" wx:if="{{item.remark}}">{{item.remark}}</view>
     </view>
   </view>
 
