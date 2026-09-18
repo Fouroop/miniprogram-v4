@@ -805,6 +805,60 @@ router.get('/volc/usage', async (req, res) => {
   }});
 });
 
+// ================= 火山主账号配置（AK/SK 加密存储，仅掩码返回） =================
+router.get('/volc/account', async (req, res) => {
+  const volc = require('../utils/volc');
+  const cfg = await volc.getAccount();
+  if (!cfg || !cfg.access_key) return res.json({ ok: true, data: { configured: false } });
+  res.json({ ok: true, data: {
+    configured: true,
+    user_name: cfg.user_name || '',
+    account_id: cfg.account_id || '',
+    access_key: cfg.access_key,
+    ak_mask: (cfg.access_key || '').slice(0, 4) + '****' + (cfg.access_key || '').slice(-4)
+  }});
+});
+router.put('/volc/account', async (req, res) => {
+  const volc = require('../utils/volc');
+  const { user_name, account_id, access_key, secret_key } = req.body || {};
+  if (!access_key || !secret_key) return res.json({ ok: false, error: 'Access Key / Secret Key 必填' });
+  await volc.setAccount({ user_name: user_name || '', account_id: account_id || '', access_key: access_key.trim(), secret_key: secret_key.trim() });
+  res.json({ ok: true, data: { configured: true } });
+});
+
+// ================= 火山官方账单与余额（需已配置 AK/SK） =================
+router.get('/volc/billing', async (req, res) => {
+  const volc = require('../utils/volc');
+  const cfg = await volc.getAccount();
+  if (!cfg || !cfg.access_key) return res.json({ ok: false, error: '未配置火山主账号 AK/SK' });
+  const ak = cfg.access_key, sk = volc.decrypt(cfg.secret_key);
+  if (!sk) return res.json({ ok: false, error: '密钥解密失败，请重新配置' });
+  const now = new Date();
+  const ym = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const months = [ym(now), ym(new Date(now.getFullYear(), now.getMonth() - 1, 1)), ym(new Date(now.getFullYear(), now.getMonth() - 2, 1))];
+  try {
+    const [balance, ...bills] = await Promise.all([
+      volc.fetchBalance(ak, sk),
+      ...months.map(m => volc.fetchBillByMonth(ak, sk, m).catch(e => ({ __error: e.message })))
+    ]);
+    const monthData = months.map((m, i) => {
+      const b = bills[i];
+      if (b && b.__error) return { month: m, error: b.__error };
+      const rows = b || [];
+      return {
+        month: m,
+        totalYuan: Math.round(rows.reduce((s, x) => s + (x.amount || 0), 0) * 100) / 100,
+        pretaxYuan: Math.round(rows.reduce((s, x) => s + (x.pretaxAmount || 0), 0) * 100) / 100,
+        discountYuan: Math.round(rows.reduce((s, x) => s + (x.discountAmount || 0), 0) * 100) / 100,
+        byProduct: rows.slice(0, 20)
+      };
+    });
+    res.json({ ok: true, data: { balance, months: monthData } });
+  } catch (e) {
+    res.json({ ok: false, error: '调用火山费用中心失败：' + e.message });
+  }
+});
+
 // ---------- 工具 ----------
 function maskKey(k) {
   if (!k) return '';
