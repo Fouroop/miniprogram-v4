@@ -1,0 +1,220 @@
+.page {
+  padding: 28rpx 30rpx 60rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #F6F0E4;
+}
+
+/* 来源切换：题库 | 错题本 */
+.src-tabs {
+  display: flex;
+  background: #EFE6D4;
+  border-radius: 999rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+}
+.src-tab {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #6E675A;
+}
+.src-tab.on {
+  background: #3B6EA5;
+  color: #fff;
+  box-shadow: 0 4rpx 12rpx rgba(59, 110, 165, 0.3);
+}
+
+/* 筛选 */
+.chip-bar { display: flex; flex-wrap: wrap; gap: 14rpx; margin-bottom: 16rpx; }
+.chip {
+  padding: 12rpx 30rpx;
+  border-radius: 999rpx;
+  background: #EFE6D4;
+  color: #6E675A;
+  font-size: 25rpx;
+  font-weight: 600;
+}
+.chip.chip-active { background: #D64541; color: #fff; }
+.tabs { display: flex; flex-wrap: wrap; gap: 14rpx; margin-bottom: 16rpx; }
+.tab {
+  padding: 14rpx 38rpx;
+  border-radius: 999rpx;
+  background: #EFE6D4;
+  color: #6E675A;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.tab.on { background: #3B6EA5; color: #fff; }
+
+/* 列表：题库条目 */
+.q-item {
+  display: flex;
+  gap: 20rpx;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.q-img {
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 16rpx;
+  background: #FAF6EC;
+  border: 1.5rpx solid #EEE4D0;
+  flex-shrink: 0;
+}
+.q-main { flex: 1; min-width: 0; }
+.q-tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 12rpx; }
+.tag { font-size: 19rpx; padding: 4rpx 14rpx; border-radius: 999rpx; }
+.tag-subject { background: #F7E3E0; color: #D64541; }
+.tag-grade { background: #EDE9F7; color: #7A6BC9; }
+.tag-topic { background: #E5F0E7; color: #4C8A5C; }
+.tag-diff { background: #EFE6D4; color: #A69C89; }
+.tag-diff.hard { background: #F7E3E0; color: #D64541; }
+.tag-diff.easy { background: #E5F0E7; color: #4C8A5C; }
+.q-stem {
+  font-size: 26rpx;
+  color: #2B2A26;
+  line-height: 1.65;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* 列表：错题条目 */
+.m-card {
+  position: relative;
+  background: #FFFDF8;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 4rpx 20rpx rgba(66, 54, 30, 0.07);
+  margin-bottom: 20rpx;
+}
+.mc-top { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
+.badge { font-size: 20rpx; padding: 6rpx 16rpx; border-radius: 999rpx; }
+.badge-subject { background: #F7E3E0; color: #D64541; }
+.badge-status { background: #F3E9D8; color: #C98A2D; }
+.badge-status-review { background: #E5F0E7; color: #4C8A5C; }
+.badge-status-ok { background: #3B6EA5; color: #fff; }
+.badge-tag { background: #EDE9F7; color: #7A6BC9; }
+.mc-stem {
+  font-size: 27rpx;
+  line-height: 1.75;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mc-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+}
+.mc-reason { color: #D64541; }
+.mc-date { color: #A69C89; }
+
+.list-end { text-align: center; color: #A69C89; font-size: 22rpx; padding: 24rpx 0 8rpx; }
+.empty { text-align: center; padding: 120rpx 0; color: #A69C89; }
+.empty-ic { width: 110rpx; height: 110rpx; line-height: 110rpx; border-radius: 50%; background: #EFE6D4; margin: 0 auto 20rpx; font-size: 30rpx; font-weight: 700; }
+.loading { text-align: center; color: #A69C89; font-size: 22rpx; padding: 20rpx; }
+
+/* 详情弹层 */
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 90;
+}
+.detail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #FFFDF8;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 91;
+  padding: 28rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+}
+.detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.detail-title { font-size: 30rpx; font-weight: 700; text-align: center; }
+.detail-more {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #A69C89;
+  padding: 4rpx 14rpx;
+  line-height: 1;
+}
+.detail-img { width: 100%; border-radius: 18rpx; border: 1.5rpx solid #EEE4D0; margin-bottom: 20rpx; }
+.detail-body { flex: 1; min-height: 0; }
+.sec-label { font-size: 23rpx; font-weight: 700; color: #C98A2D; margin: 18rpx 0 8rpx; }
+.sec-text { font-size: 27rpx; color: #2B2A26; line-height: 1.8; }
+.sec-answer { color: #3B6EA5; font-weight: 700; }
+.sec-analysis { color: #4A463E; }
+.sec-reason { color: #D64541; }
+.detail-actions { display: flex; gap: 20rpx; margin-top: 24rpx; }
+.d-btn {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  border-radius: 999rpx;
+  font-size: 29rpx;
+  font-weight: 700;
+}
+.d-btn.ghost { background: #EFE6D4; color: #6E675A; }
+.d-btn.primary { background: #3B6EA5; color: #fff; }
+
+/* 编辑弹层（题库/错题共用） */
+.editor-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #FFFDF8;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 99;
+  transform: translateY(110%);
+  transition: transform 0.25s ease;
+  padding: 30rpx 30rpx calc(30rpx + env(safe-area-inset-bottom));
+}
+.editor-up { transform: translateY(0); }
+.ep-title { font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
+.ep-body { max-height: 52vh; }
+.ep-row { margin-bottom: 22rpx; }
+.ep-label { font-size: 24rpx; color: #A69C89; margin-bottom: 10rpx; }
+.ep-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 16rpx;
+  background: #fff;
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: #2B2A26;
+  min-height: 80rpx;
+}
+.ep-area { min-height: 120rpx; }
+.ep-picker { display: flex; align-items: center; height: 80rpx; }
+.ep-btns { display: flex; gap: 20rpx; margin-top: 26rpx; }
+.ep-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.ep-cancel { background: #F1EBDE; color: #6E675A; }
+.ep-save { background: #07C160; color: #fff; }

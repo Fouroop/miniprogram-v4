@@ -1,0 +1,184 @@
+<view class="page">
+  <!-- 来源切换：题库 | 错题本 -->
+  <view class="src-tabs">
+    <view wx:for="{{sourceTabs}}" wx:key="key"
+      class="src-tab {{source === item.key ? 'on' : ''}}"
+      data-key="{{item.key}}" bindtap="switchSource">{{item.name}}</view>
+  </view>
+
+  <!-- 科目筛选 -->
+  <view class="chip-bar">
+    <view wx:for="{{subjects}}" wx:key="*this"
+      class="chip {{subject === item ? 'chip-active' : ''}}"
+      data-v="{{item}}" bindtap="pickSubject">{{item}}</view>
+  </view>
+
+  <!-- 题库：年级 + 专题筛选 -->
+  <block wx:if="{{source === 'question'}}">
+    <view class="tabs">
+      <view class="tab {{curGrade === item.key ? 'on' : ''}}" wx:for="{{gradeTabs}}" wx:key="key"
+        data-key="{{item.key}}" bindtap="switchGrade">{{item.name}}</view>
+    </view>
+    <view class="tabs">
+      <view class="tab {{curTopic === item.key ? 'on' : ''}}" wx:for="{{topicTabs}}" wx:key="key"
+        data-key="{{item.key}}" bindtap="switchTopic">{{item.name}}</view>
+    </view>
+  </block>
+
+  <!-- 错题本：状态筛选 -->
+  <view class="chip-bar" wx:if="{{source === 'mistake'}}">
+    <view wx:for="{{statuses}}" wx:key="*this"
+      class="chip {{curStatus === item ? 'chip-active' : ''}}"
+      data-v="{{item}}" bindtap="pickStatus">{{item}}</view>
+  </view>
+
+  <!-- 列表 -->
+  <view class="list" wx:if="{{list.length}}">
+    <!-- 题库条目 -->
+    <block wx:if="{{source === 'question'}}">
+      <view class="q-item" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+        <image wx:if="{{item.image_url}}" class="q-img" src="{{item.image_url}}" mode="aspectFit" lazy-load="true" />
+        <view class="q-main">
+          <view class="q-tags">
+            <text class="tag tag-subject">{{item.subject || '数学'}}</text>
+            <text wx:if="{{item.grade}}" class="tag tag-grade">{{item.grade}}</text>
+            <text wx:if="{{item.tag}}" class="tag tag-topic">{{item.tag}}</text>
+            <text class="tag tag-diff {{item.difficulty === '较难' ? 'hard' : (item.difficulty === '容易' ? 'easy' : '')}}">{{item.difficulty || '中等'}}</text>
+          </view>
+          <view class="q-stem">{{item.stem}}</view>
+        </view>
+      </view>
+    </block>
+    <!-- 错题条目 -->
+    <block wx:else>
+      <view class="m-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+        <view class="mc-top">
+          <text class="badge badge-subject">{{item.subject}}</text>
+          <text class="badge {{item.status === '已掌握' ? 'badge-status-ok' : (item.status === '复习中' ? 'badge-status-review' : 'badge-status')}}">{{item.status}}</text>
+          <text class="badge badge-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+        </view>
+        <view class="mc-stem">{{item.stem}}</view>
+        <view class="mc-bottom">
+          <text class="mc-reason" wx:if="{{item.reason}}">错因：{{item.reason}}</text>
+          <text class="mc-date" wx:if="{{item.created_at}}">{{item.created_at}}</text>
+        </view>
+      </view>
+    </block>
+    <view class="list-end" wx:if="{{!hasMore}}">— 已加载全部 {{total}} 条 —</view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !list.length}}">
+    <view class="empty-ic">空</view>
+    <view class="empty-t">暂无{{source === 'question' ? '题目' : '错题'}}</view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中…</view>
+
+  <!-- 详情弹层 -->
+  <view class="mask" wx:if="{{showDetail}}" bindtap="closeDetail"></view>
+  <view class="detail" wx:if="{{showDetail && cur}}">
+    <view class="detail-head">
+      <view class="detail-title">{{source === 'question' ? '题目详情' : '错题详情'}}</view>
+      <view class="detail-more" catchtap="onItemMenu">···</view>
+    </view>
+    <image wx:if="{{cur.image_url}}" class="detail-img" src="{{cur.image_url}}" mode="widthFix" />
+    <scroll-view class="detail-body" scroll-y>
+      <view class="sec-label">题目</view>
+      <view class="sec-text">{{cur.stem}}</view>
+      <view class="sec-label">答案</view>
+      <view class="sec-text sec-answer">{{cur.answer}}</view>
+      <block wx:if="{{source === 'mistake'}}">
+        <view class="sec-label">错因</view>
+        <view class="sec-text sec-reason">{{cur.reason || '（未记录错因）'}}</view>
+      </block>
+      <block wx:else>
+        <view class="sec-label">解析</view>
+        <view class="sec-text sec-analysis">{{cur.analysis || '（暂无解析）'}}</view>
+      </block>
+    </scroll-view>
+    <view class="detail-actions">
+      <view class="d-btn ghost" wx:if="{{source === 'question'}}" bindtap="askQuestion">问这道题</view>
+      <view class="d-btn ghost" wx:else bindtap="askMistake">AI 辅导</view>
+      <view class="d-btn primary" wx:if="{{source === 'question'}}" bindtap="addMistake">{{adding ? '加入中…' : '加入错题本'}}</view>
+    </view>
+  </view>
+
+  <!-- 题库编辑弹层 -->
+  <view class="mask" wx:if="{{qEditorVisible}}" bindtap="closeQEditor"></view>
+  <view class="editor-panel {{qEditorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑题目</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{qForm.stem}}" data-f="stem" bindinput="onQInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案</view>
+        <textarea class="ep-input ep-area" value="{{qForm.answer}}" data-f="answer" bindinput="onQInput" placeholder="正确答案" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">解析</view>
+        <textarea class="ep-input ep-area" value="{{qForm.analysis}}" data-f="analysis" bindinput="onQInput" placeholder="解题思路 / 解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{qSubjects}}" value="{{qSubjectIndex}}" bindchange="onQSubject">
+          <view class="ep-input ep-picker">{{qForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">年级</view>
+        <picker range="{{qGrades}}" value="{{qGradeIndex}}" bindchange="onQGrade">
+          <view class="ep-input ep-picker">{{qForm.grade || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">难度</view>
+        <picker range="{{qDiffs}}" value="{{qDiffIndex}}" bindchange="onQDiff">
+          <view class="ep-input ep-picker">{{qForm.difficulty || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{qForm.tag}}" data-f="tag" bindinput="onQInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeQEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveQEditor">保存</view>
+    </view>
+  </view>
+
+  <!-- 错题编辑弹层 -->
+  <view class="mask" wx:if="{{mEditorVisible}}" bindtap="closeMEditor"></view>
+  <view class="editor-panel {{mEditorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑错题</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.stem}}" data-f="stem" bindinput="onEditInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">错因</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.reason}}" data-f="reason" bindinput="onEditInput" placeholder="错因定位" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案/解析</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.answer}}" data-f="answer" bindinput="onEditInput" placeholder="正确答案与解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{editSubjects}}" value="{{editSubjectIndex}}" bindchange="onEditSubject">
+          <view class="ep-input ep-picker">{{editorForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{editorForm.tag}}" data-f="tag" bindinput="onEditInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeMEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveMEditor">保存</view>
+    </view>
+  </view>
+</view>

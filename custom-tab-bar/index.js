@@ -7,7 +7,7 @@ Component({
     list: [
       { pagePath: '/pages/home/home', text: '首页', icon: 'home' },
       { pagePath: '/pages/knowledge/knowledge', text: '知识地图', icon: 'map' },
-      { pagePath: '/pages/mistakes/mistakes', text: '错题本', icon: 'book' },
+      { pagePath: '/pages/learn/learn', text: '学习', icon: 'book' },
       { pagePath: '/pages/me/me', text: '我的', icon: 'user' }
     ].map(function (it) {
       return Object.assign({}, it, {

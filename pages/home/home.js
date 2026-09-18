@@ -100,8 +100,12 @@ Page({
   },
 
   goScan() { wx.navigateTo({ url: '/pages/scan/scan' }); },
-  goQuestions() { wx.navigateTo({ url: '/pages/questions/questions' }); },
-  goMistakes() { wx.switchTab({ url: '/pages/mistakes/mistakes' }); },
+  // 题库/错题本已合并为「学习」页，通过缓存带筛选
+  goQuestions() { wx.switchTab({ url: '/pages/learn/learn' }); },
+  goMistakes() {
+    wx.setStorageSync('mistakes_filter', {});
+    wx.switchTab({ url: '/pages/learn/learn' });
+  },
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
   // 统计卡片点击：跳到对应的列表/页面
@@ -112,11 +116,11 @@ Page({
       wx.switchTab({ url: '/pages/knowledge/knowledge' });
       return;
     }
-    // 错题相关：通过本地缓存把筛选条件带给错题本页
+    // 错题相关：通过本地缓存把筛选条件带给学习页（错题本）
     if (k === 'pending') wx.setStorageSync('mistakes_filter', { status: '未掌握' });
     else if (k === 'mastered') wx.setStorageSync('mistakes_filter', { status: '已掌握' });
     else if (k === 'total') wx.setStorageSync('mistakes_filter', {});
-    wx.switchTab({ url: '/pages/mistakes/mistakes' });
+    wx.switchTab({ url: '/pages/learn/learn' });
   },
 
   openDetail(e) {

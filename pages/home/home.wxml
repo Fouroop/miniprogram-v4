@@ -55,17 +55,8 @@
         <view class="entry-ic-text">题</view>
       </view>
       <view class="entry-body">
-        <view class="entry-name">题库</view>
-        <view class="entry-desc">全年级 · 几何函数 · 预置题目</view>
-      </view>
-    </view>
-    <view class="entry" bindtap="goMistakes">
-      <view class="entry-ic blue">
-        <view class="entry-ic-text">本</view>
-      </view>
-      <view class="entry-body">
-        <view class="entry-name">错题本</view>
-        <view class="entry-desc">按科目复习，逐个攻克</view>
+        <view class="entry-name">学习</view>
+        <view class="entry-desc">题库 · 错题本 · 内部筛选</view>
       </view>
     </view>
   </view>

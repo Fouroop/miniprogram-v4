@@ -4,6 +4,7 @@
     "pages/home/home",
     "pages/scan/scan",
     "pages/questions/questions",
+    "pages/learn/learn",
     "pages/knowledge/knowledge",
     "pages/mistakes/mistakes",
     "pages/mistake-detail/mistake-detail",
@@ -24,10 +25,22 @@
     "selectedColor": "#D64541",
     "backgroundColor": "#FFFDF8",
     "list": [
-      { "pagePath": "pages/home/home", "text": "首页" },
-      { "pagePath": "pages/knowledge/knowledge", "text": "知识地图" },
-      { "pagePath": "pages/mistakes/mistakes", "text": "错题本" },
-      { "pagePath": "pages/me/me", "text": "我的" }
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/knowledge/knowledge",
+        "text": "知识地图"
+      },
+      {
+        "pagePath": "pages/learn/learn",
+        "text": "学习"
+      },
+      {
+        "pagePath": "pages/me/me",
+        "text": "我的"
+      }
     ]
   },
   "permission": {

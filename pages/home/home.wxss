@@ -35,7 +35,7 @@
   margin-bottom: 30rpx;
 }
 .entry {
-  width: 31.8%;
+  width: 48.5%;
   background: #FFFDF8;
   border: 1.5rpx solid #E2D8C2;
   border-radius: 24rpx;
