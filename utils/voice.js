@@ -151,6 +151,7 @@ function createStreamingPlayer(opts) {
     enqueue(buf) {
       if (!buf || !buf.byteLength) return;
       var a = ensureAc();
+      console.log('[VoiceCall] enqueue bytes=' + buf.byteLength + ' acState=' + a.state + ' sampleRate=' + a.sampleRate);
       var i16 = new Int16Array(buf.buffer || buf, buf.byteOffset || 0, (buf.byteLength || buf.length) >> 1);
       var f32 = resamplePcm16(i16, DOWN_RATE, a.sampleRate);
       if (!f32.length) return;
@@ -200,6 +201,7 @@ function createStreamingPlayer(opts) {
     setMuted(v) {
       muted = !!v;
       // 解除静音：缓冲的 AI 语音从头开始播放
+      console.log('[VoiceCall] setMuted(' + muted + ') sampleBuf=' + sampleBuf.length + ' started=' + started);
       if (!muted && !started && sampleBuf.length > 0) startWhenReady();
     },
     retry() {
@@ -522,8 +524,10 @@ class VoiceCall {
       if (this._dropAudio) return;
       // AI 音频：base64 PCM s16le 24kHz，增量入播放器（收到即播）
       const b64 = msg.delta || msg.audio || '';
+      console.log('[VoiceCall] audioDelta b64=' + (b64 ? b64.length : 0) + ' keys=' + Object.keys(msg).join(',') + ' player=' + !!(this.player));
       if (b64) {
         const raw = self._base64ToBytes(b64);
+        console.log('[VoiceCall] audioDelta rawBytes=' + (raw ? raw.byteLength : 0));
         if (raw && raw.byteLength && this.player) this.player.enqueue(raw);
       }
 
