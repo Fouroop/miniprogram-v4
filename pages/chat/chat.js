@@ -142,19 +142,16 @@ Page({
 
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
-  // 触摸页面：首次触摸解除静音缓冲（播放 AI 已说的话）+ 解锁 AudioContext
-  // 每次都尝试（幂等）：后续触摸仅解锁/重放，不影响已开始的播放
+  // 触摸页面：首次触摸解除静音缓冲（播放 AI 已说的话）+ 同步解锁 AudioContext
+  // iOS 微信 resume().then 回调不可靠 → 手势栈内同步 resume 后立即同步 retry
   onPageTouch() {
     this._ensureAudioCtx();
     // 首次轻触：AI 第一轮语音从缓冲开始播放（此后问答正常流式出声）
     if (this.voice && this.voice._muteUntilTouch !== false) this.voice.setMuteUntilTouch(false);
     const ac = this._audioCtx;
     if (ac && (ac.state === 'suspended' || ac.state === 'interrupted') && ac.resume) {
-      // 手势栈内同步 resume（iOS 要求），随后异步 retry 重放
       try { ac.resume(); } catch (e) {}
-      try {
-        ac.resume().then(() => { if (this.voice) this.voice.retry(); }).catch(() => {});
-      } catch (e) {}
+      if (this.voice) this.voice.retry();
     } else if (this.voice) {
       this.voice.retry();
     }

@@ -58,7 +58,8 @@ function createStreamingPlayer(opts) {
       try { ac = wx.createWebAudioContext({ sampleRate: DOWN_RATE }); }
       catch (e) { ac = wx.createWebAudioContext(); }
       ownsAc = true;
-      console.log('[StreamingPlayer] AudioContext state=' + ac.state + ', sampleRate=' + ac.sampleRate);
+      if (ac) console.log('[StreamingPlayer] AudioContext state=' + ac.state + ', sampleRate=' + ac.sampleRate);
+      else console.warn('[StreamingPlayer] AudioContext 创建失败');
     }
     return ac;
   }
@@ -132,15 +133,22 @@ function createStreamingPlayer(opts) {
   }
 
   // 启动前先解锁 AudioContext（iOS 无手势创建为 suspended，直接调度会无声）
-  // 解锁失败则挂起等待：音频继续积累到缓冲区，用户首次触摸（onPageTouch→retry）后从头播放
-  function startWhenReady() {
+  // sync=true（用户手势栈内调用，如轻触/按住）：同步 resume 后立即启动——
+  //   iOS 微信里 resume().then() 的 Promise 回调不可靠，但手势栈内同步 resume 立即生效
+  // sync=false（网络回调等非手势场景）：解锁失败则挂起等待，等手势后 retry()
+  function startWhenReady(sync) {
     if (started) return;
     var a = ensureAc();
     if (a.state === 'suspended' || a.state === 'interrupted') {
       if (a.resume) {
-        a.resume().then(function () { startPlayback(); }).catch(function () {
-          // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
-        });
+        if (sync) {
+          try { a.resume(); } catch (e) {}
+          startPlayback();
+        } else {
+          a.resume().then(function () { startPlayback(); }).catch(function () {
+            // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
+          });
+        }
       }
     } else {
       startPlayback();
@@ -200,25 +208,32 @@ function createStreamingPlayer(opts) {
     },
     setMuted(v) {
       muted = !!v;
-      // 解除静音：缓冲的 AI 语音从头开始播放
       console.log('[VoiceCall] setMuted(' + muted + ') sampleBuf=' + sampleBuf.length + ' started=' + started);
-      if (!muted && !started && sampleBuf.length > 0) startWhenReady();
+      if (!muted) {
+        // 手势栈内同步解锁 AudioContext：无论缓冲是否已到，先解锁，
+        // 确保后续音频一到达（muted=false）即可直接播放，无需二次触摸
+        var a = ensureAc();
+        if ((a.state === 'suspended' || a.state === 'interrupted') && a.resume) {
+          try { a.resume(); } catch (e) {}
+        }
+        if (!started && sampleBuf.length > 0) startWhenReady(true);
+      }
     },
     retry() {
-      // iOS AudioContext 解锁后重试（覆盖"已启动但 source 挂在 suspended 时间线"的场景）
+      // 手势栈内重试（onPageTouch 同步调用）：iOS 微信 resume().then 回调不可靠，
+      // 改为同步 resume 后立即从头播放缓冲（或重新调度已 started 但无 source 的播放）
       var a = ensureAc();
       if (a.state === 'suspended' || a.state === 'interrupted') {
         if (a.resume) {
-          a.resume().then(function () {
-            if (!started && sampleBuf.length > 0) {
-              startPlayback();
-            } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
-              // 已 started 但没有任何 source 真正调度上 → 重新启动
-              started = false;
-              playing = false;
-              startPlayback();
-            }
-          }).catch(function () {});
+          try { a.resume(); } catch (e) {}
+          if (!started && sampleBuf.length > 0) {
+            startPlayback();
+          } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
+            // 已 started 但没有任何 source 真正调度上 → 重新启动
+            started = false;
+            playing = false;
+            startPlayback();
+          }
         }
       } else if (!started && sampleBuf.length > 0) {
         startPlayback();
@@ -520,8 +535,6 @@ class VoiceCall {
       // AI 开始输出音频（播放由 output_audio.delta 驱动，这里只需标记）
       console.log('[VoiceCall] AI 开始输出音频');
     } else if (t === 'response.output_audio.delta') {
-      // 开场白静音模式：只显示文字，丢弃音频
-      if (this._dropAudio) return;
       // AI 音频：base64 PCM s16le 24kHz，增量入播放器（收到即播）
       const b64 = msg.delta || msg.audio || '';
       console.log('[VoiceCall] audioDelta b64=' + (b64 ? b64.length : 0) + ' keys=' + Object.keys(msg).join(',') + ' player=' + !!(this.player));
@@ -537,7 +550,6 @@ class VoiceCall {
 
     } else if (t === 'response.done') {
       // 一轮交互结束：音频可能还在播放，等播放结束再恢复麦克风
-      this._dropAudio = false; // 开场白结束，后续问答正常出声
       if (this.player) this.player.flush();
       if (this.aiStream) {
         this._emit('onAiTextDone');
