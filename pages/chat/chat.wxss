@@ -155,34 +155,6 @@
   justify-content: center;
   flex-shrink: 0;
 }
-/* 回声诊断开关（开发者调试） */
-.diag-toggle {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  background: #F0F0F0;
-  border: 1.5rpx solid #D8D8D8;
-  color: #999;
-  font-size: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.diag-toggle.on { background: #FFE8E8; border-color: #F5A6A6; color: #E04B4B; }
-.voice-diag {
-  margin: 12rpx 24rpx 0;
-  padding: 16rpx 20rpx;
-  background: #111;
-  border-radius: 12rpx;
-  flex-shrink: 0;
-}
-.diag-row {
-  font-size: 22rpx;
-  color: #7CFF8F;
-  font-family: monospace;
-  line-height: 1.7;
-}
 .input-mode-btn.on { background: #E3EDF7; border-color: #BBD2E8; }
 .im-icon { font-size: 40rpx; line-height: 1; }
 .input-box {
