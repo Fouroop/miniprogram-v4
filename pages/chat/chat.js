@@ -195,7 +195,7 @@ Page({
     if (next === 'text' && this.data.callOn) this.hangup();
     this.setData({
       inputMode: next,
-      headStatusText: next === 'voice' ? '语音：接通后按住说话' : '支持文字与语音提问'
+      headStatusText: next === 'voice' ? '点击下方按钮开始语音聊天' : '支持文字与语音提问'
     });
   },
 
@@ -339,7 +339,21 @@ Page({
   /* ---------- 语音模式（全双工：麦克风始终开启，服务端 VAD 检测说话/停顿） ---------- */
   buildInstructions() {
     const stem = this.data.mistake ? this.data.mistake.stem : '';
-    return PERSONA + '\n当前辅导的题目：' + (stem || '学生自由提问，先了解他想问什么');
+    let ctx = PERSONA + '\n当前辅导的题目：' + (stem || '学生自由提问，先了解他想问什么');
+    // 注入最近对话历史：从文字切回语音时延续上下文（AI 记得前面聊过什么）
+    const msgs = this.data.messages || [];
+    const hist = [];
+    for (let i = 0; i < msgs.length && hist.length < 10; i++) {
+      const m = msgs[i];
+      if (m && m.text && !m.stream) hist.push((m.role === 'user' ? '学生：' : 'AI：') + m.text);
+    }
+    if (hist.length) ctx += '\n\n【之前的对话】\n' + hist.join('\n');
+    return ctx;
+  },
+
+  // 是否已有真实对话历史（>1 条即视为聊过；仅剩初始欢迎语视为新会话）
+  _hasChatHistory() {
+    return (this.data.messages || []).length > 1;
   },
 
   // 确保 AudioContext 已创建（用户手势中调用）
@@ -469,7 +483,8 @@ Page({
           });
         }
       });
-      const greeting = self._buildGreeting();
+      // 有对话历史（文字切回语音）时不重复打招呼，直接延续上下文
+      const greeting = self._hasChatHistory() ? '' : self._buildGreeting();
       // 确保题干已就绪再建会话（用户进页面立即按 MIC 时，避免 AI 不知道题目）
       const prep = self.data.mistakeId && !self.data.mistake
         ? request('/mistakes/' + self.data.mistakeId).then((m) => {
@@ -479,7 +494,7 @@ Page({
       prep.then(() => {
         // 题干就绪后重新生成开场白（结合刚拿到的题目/错因）
         // 自动连接：AI 文字先显示，语音先缓冲；用户轻触屏幕后从头播放（iOS 手势解锁）
-        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx);
+        self.voice.start(self.buildInstructions(), greeting, self._audioCtx);
       });
     });
     this._voiceConnecting = p;
