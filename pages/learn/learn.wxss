@@ -157,7 +157,8 @@
   line-height: 1;
 }
 .detail-img { width: 100%; border-radius: 18rpx; border: 1.5rpx solid #EEE4D0; margin-bottom: 20rpx; }
-.detail-body { flex: 1; min-height: 0; }
+/* scroll-view 需显式高度才真正可滚动：height:0 + flex:1，长题干只在内容区滚动，底部按钮不被顶走 */
+.detail-body { flex: 1; min-height: 0; height: 0; }
 .sec-label { font-size: 23rpx; font-weight: 700; color: #C98A2D; margin: 18rpx 0 8rpx; }
 .sec-text { font-size: 27rpx; color: #2B2A26; line-height: 1.8; }
 .sec-answer { color: #3B6EA5; font-weight: 700; }

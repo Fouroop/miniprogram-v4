@@ -13,8 +13,15 @@ const PERSONA =
   '教学原则：绝不直接给出答案或完整解法。每次只提一个启发性的小问题，引导学生自己说出思路、发现错误、推出结论。\n' +
   '对话风格：亲切、耐心、口语化，像真人老师打电话一样自然，每轮回复不超过 3 句话。学生答对关键一步时明确肯定，再引导下一步。';
 
+// 微信风格输入栏图标（SVG data URI，麦克风/键盘线稿）
+const INPUT_ICONS = {
+  mic: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='2' width='6' height='12' rx='3'/%3E%3Cpath d='M5 10a7 7 0 0 0 14 0'/%3E%3Cpath d='M12 17v4'/%3E%3Cpath d='M8 21h8'/%3E%3C/svg%3E",
+  kb: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='2'/%3E%3Cpath d='M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6'/%3E%3C/svg%3E"
+};
+
 Page({
   data: {
+    icons: INPUT_ICONS,
     isVip: false,
     inputMode: 'voice',      // voice（按住说话）| text（键盘输入），微信聊天式切换
     mistakeId: null,

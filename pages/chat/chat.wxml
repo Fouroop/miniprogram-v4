@@ -39,7 +39,8 @@
   <!-- 底部输入栏：微信聊天式（语音 / 键盘切换） -->
   <view class="input-bar">
     <view class="input-mode-btn {{inputMode === 'voice' ? 'on' : ''}}" bindtap="toggleInputMode">
-      <text class="im-icon">{{inputMode === 'text' ? '🎤' : '⌨️'}}</text>
+      <image class="im-icon" wx:if="{{inputMode === 'text'}}" src="{{icons.mic}}" />
+      <image class="im-icon" wx:else src="{{icons.kb}}" />
     </view>
     <block wx:if="{{inputMode === 'text'}}">
       <input class="input-box" value="{{inputText}}" bindinput="onInput" confirm-type="send" bindconfirm="sendText" placeholder="输入消息…" placeholder-class="input-ph" />
