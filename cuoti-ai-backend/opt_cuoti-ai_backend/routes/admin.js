@@ -500,6 +500,85 @@ router.put('/voice/wxpay/config', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- 微信支付连接测试（验证商户号/证书序列号/私钥/APIv3密钥） ----------
+router.post('/voice/wxpay/test-connect', async (req, res) => {
+  const wxpay = require('./wxpay');
+  try {
+    const cfg = await wxpay.getConfig();
+    if (!cfg) return res.json({ ok: false, error: '未配置微信支付参数，请先保存配置' });
+    wxpay.resetPlatformCertCache();
+    const cert = await wxpay.getPlatformCert(cfg);
+    res.json({ ok: true, data: { cert_ok: true, cert_preview: String(cert).slice(0, 30) + '…' } });
+  } catch (e) {
+    res.json({ ok: false, error: '连接失败：' + (e && e.message ? e.message : String(e)).slice(0, 300) });
+  }
+});
+
+// ---------- 微信支付测试下单（0.01 元真实调统一下单，验证下单链路） ----------
+router.post('/voice/wxpay/test-prepay', async (req, res) => {
+  const wxpay = require('./wxpay');
+  try {
+    const cfg = await wxpay.getConfig();
+    if (!cfg) return res.json({ ok: false, error: '未配置微信支付参数，请先保存配置' });
+    const openid = String(req.body.openid || '').trim();
+    if (!openid) return res.json({ ok: false, error: '请填写测试用户的 openid（小程序 code 换取的 openid）' });
+    const tradeNo = 'TEST' + Date.now() + Math.floor(Math.random() * 1000);
+    const path = '/v3/pay/transactions/jsapi';
+    const body = {
+      appid: cfg.appid,
+      mchid: cfg.mchid,
+      description: '微信支付配置验证（请勿支付）',
+      out_trade_no: tradeNo,
+      notify_url: wxpay.getNotifyUrl(),
+      amount: { total: 1, currency: 'CNY' },
+      payer: { openid }
+    };
+    const bodyStr = JSON.stringify(body);
+    const auth = wxpay.buildAuthHeader('POST', path, bodyStr, cfg);
+    const resp = await wxpay.httpsJson({
+      hostname: 'api.mch.weixin.qq.com', path, method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+    }, bodyStr);
+    if (resp.status !== 200 || !resp.body.prepay_id) {
+      return res.json({ ok: false, error: '下单失败(' + resp.status + ')：' + JSON.stringify(resp.body).slice(0, 300) });
+    }
+    // 生成 wx.requestPayment 参数（仅验证用途，勿真实拉起）
+    const crypto = require('crypto');
+    const timeStamp = Math.floor(Date.now() / 1000).toString();
+    const nonceStr = crypto.randomBytes(16).toString('hex');
+    const packageStr = 'prepay_id=' + resp.body.prepay_id;
+    const paySignMsg = `${cfg.appid}\n${timeStamp}\n${nonceStr}\n${packageStr}\n`;
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(paySignMsg, 'utf8'); sign.end();
+    res.json({
+      ok: true,
+      data: {
+        trade_no: tradeNo,
+        prepay_id: resp.body.prepay_id,
+        payment: {
+          timeStamp, nonceStr, package: packageStr, signType: 'RSA',
+          paySign: sign.sign(cfg.private_key, 'base64')
+        }
+      }
+    });
+  } catch (e) {
+    res.json({ ok: false, error: '测试下单异常：' + (e && e.message ? e.message : String(e)).slice(0, 300) });
+  }
+});
+
+// ---------- 语音包订单列表（验证支付回调发货结果） ----------
+router.get('/voice/wxpay/orders', async (req, res) => {
+  const { page = 1, size = 20 } = req.query;
+  const p = Math.max(1, parseInt(page)), s = Math.min(50, parseInt(size));
+  const [total] = await pool.query('SELECT COUNT(*) c FROM voice_orders');
+  const [rows] = await pool.query(
+    `SELECT id, user_id, plan, plan_name, minutes, amount, status, pay_type, trade_no, transaction_id, created_at
+     FROM voice_orders ORDER BY id DESC LIMIT ? OFFSET ?`,
+    [s, (p - 1) * s]
+  );
+  res.json({ ok: true, data: { list: rows, total: total[0].c, page: p, size: s } });
+});
+
 // ---------- 工具 ----------
 function maskKey(k) {
   if (!k) return '';

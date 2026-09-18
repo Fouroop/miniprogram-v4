@@ -110,6 +110,12 @@ function getPlatformCert(cfg) {
   return certFetching;
 }
 
+// 清除平台证书缓存（配置变更后强制重拉，用于管理后台连接测试）
+function resetPlatformCertCache() {
+  cachedPlatformPubKey = null;
+  certFetching = null;
+}
+
 // ---------- 回调验签（微信支付平台证书） ----------
 async function verifyNotifySign(cfg, headers, rawBody) {
   const timestamp = headers['wechatpay-timestamp'];
@@ -261,4 +267,4 @@ async function grantVoiceMinutes(userId, minutes, plan) {
   return g(userId, minutes, days);
 }
 
-module.exports = { getConfig, setConfig, prepay, handleNotify, getNotifyUrl };
+module.exports = { getConfig, setConfig, prepay, handleNotify, getNotifyUrl, buildAuthHeader, httpsJson, getPlatformCert, resetPlatformCertCache };

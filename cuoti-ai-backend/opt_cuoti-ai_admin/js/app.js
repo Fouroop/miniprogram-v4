@@ -7,6 +7,7 @@ const PAGES = {
   questions: { title: '题库管理', render: renderQuestions },
   mistakes: { title: '错题管理', render: renderMistakes },
   voicepack: { title: '语音包管理', render: renderVp },
+  wxpay: { title: '微信支付', render: renderWxpay },
   voice: { title: '语音引擎设置', render: renderVoice }
 };
 
