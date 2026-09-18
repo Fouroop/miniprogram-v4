@@ -877,6 +877,15 @@ class VoiceCall {
     });
     rm.onError(function (e) {
       const errMsg = (e && e.errMsg) || '';
+      // 隐私未声明/未授权：微信隐私接口机制，start/stop 均失败 → 单独事件引导用户处理，
+      // 不弹"录音失败"、不触发自动重连死循环（重连也无法解决）
+      if (errMsg.indexOf('privacy') >= 0 || errMsg.indexOf('scope') >= 0) {
+        console.warn('[VoiceCall] 录音被隐私协议拦截:', errMsg);
+        self._micActive = false;
+        self._recStarted = false;
+        self._emit('onPrivacyError', errMsg);
+        return;
+      }
       // 可恢复：对"未启动"录音器 stop/start 状态竞争触发（基础库会异步报 not start），
       // 录音器可能仍在工作 → 静默自愈重试，不弹错、不清麦克风标志（否则用户语音全部丢失）
       if (errMsg.indexOf('not start') >= 0 || errMsg.indexOf('recorder not start') >= 0) {
@@ -919,7 +928,12 @@ class VoiceCall {
           console.warn('[VoiceCall] rm.start fail:', e && e.errMsg);
           self._micActive = false;
           self._recStarted = false;
-          self._emit('onError', '录音启动失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
+          const errMsg = (e && e.errMsg) || '';
+          if (errMsg.indexOf('privacy') >= 0 || errMsg.indexOf('scope') >= 0) {
+            self._emit('onPrivacyError', errMsg);
+            return;
+          }
+          self._emit('onError', '录音启动失败：' + (errMsg || '请检查麦克风权限'));
         }
       });
       this._recStarted = true;

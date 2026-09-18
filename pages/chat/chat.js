@@ -110,9 +110,28 @@ Page({
       try { ac.resume(); } catch (e) {}
     }
     console.log('[AUDIO] AudioContext unlocked, state=' + (ac ? ac.state : 'null'));
-    // ② 服务端余额校验 → ③ 建立播放器/录音/WS 连接（全部复用刚解锁的 AudioContext）
-    this.setData({ headStatusText: '正在连接 AI 导师…' });
-    this._connectVoice().catch(() => {});
+    // ② 隐私授权（麦克风）：微信隐私接口，未在公众平台声明「麦克风」用途或用户未同意时
+    //    recorder.start/stop 会直接失败（fail api scope is not declared in the privacy agreement）
+    this._ensurePrivacyAuthorize().then((ok) => {
+      if (!ok) {
+        this.setData({ headStatusText: '需同意隐私协议后才能使用语音' });
+        return;
+      }
+      // ③ 服务端余额校验 → ④ 建立播放器/录音/WS 连接（复用刚解锁的 AudioContext）
+      this.setData({ headStatusText: '正在连接 AI 导师…' });
+      this._connectVoice().catch(() => {});
+    });
+  },
+
+  // 隐私授权：微信隐私接口机制（基础库 2.32.3+）。requirePrivacyAuthorize 弹窗授权成功后才可录音
+  _ensurePrivacyAuthorize() {
+    return new Promise((resolve) => {
+      if (!wx.requirePrivacyAuthorize) { resolve(true); return; } // 老基础库无隐私机制
+      wx.requirePrivacyAuthorize({
+        success: () => resolve(true),
+        fail: () => resolve(false)
+      });
+    });
   },
 
   // 接通流程：余额校验 → 连接（连接成功后 AI 开场白文字+语音同步自动播放）
@@ -437,6 +456,17 @@ Page({
           // 只提示用户，不要删掉 voice 对象——VoiceCall 内部会自动重连
           self.setData({ callStatusText: msg });
           self._refreshStatus();
+        },
+        onPrivacyError() {
+          // 隐私未声明/未授权：录音无法工作，重连也无意义 → 明确引导并挂断
+          console.warn('[Chat] privacy error');
+          self.hangup();
+          wx.showModal({
+            title: '无法使用麦克风',
+            content: '请在小程序内同意隐私协议；若仍失败，需在小程序后台「设置-服务内容声明-用户隐私保护指引」中声明「麦克风」用途后重新进入。',
+            showCancel: false,
+            confirmText: '知道了'
+          });
         }
       });
       const greeting = self._buildGreeting();
@@ -570,7 +600,7 @@ Page({
       micPaused: false,
       typing: false,
       callStatusText: '未接通',
-      headStatusText: '语音：接通后按住说话'
+      headStatusText: '点击下方按钮开始语音聊天'
     });
   },
 
