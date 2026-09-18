@@ -135,10 +135,12 @@ function createStreamingPlayer(opts) {
   function startWhenReady() {
     if (started) return;
     var a = ensureAc();
-    if (a.state === 'suspended' && a.resume) {
-      a.resume().then(function () { startPlayback(); }).catch(function () {
-        // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
-      });
+    if (a.state === 'suspended' || a.state === 'interrupted') {
+      if (a.resume) {
+        a.resume().then(function () { startPlayback(); }).catch(function () {
+          // iOS 无手势：resume 被拒绝，保持未启动，等手势后 retry()
+        });
+      }
     } else {
       startPlayback();
     }
@@ -182,20 +184,31 @@ function createStreamingPlayer(opts) {
       playing = false;
       if (opts && opts.onPlay) opts.onPlay(false);
     },
+    // iOS/微信：state 可能是 suspended（无手势创建）或 interrupted（被系统打断）
+    // 解锁必须在用户手势调用栈内同步执行（如按住 MIC 的 touchstart），异步调用会被拒绝
+    unlock() {
+      var a = ensureAc();
+      if (a && (a.state === 'suspended' || a.state === 'interrupted') && a.resume) {
+        try { a.resume(); } catch (e) {}
+      }
+      return a.state;
+    },
     retry() {
       // iOS AudioContext 解锁后重试（覆盖"已启动但 source 挂在 suspended 时间线"的场景）
       var a = ensureAc();
-      if (a.state === 'suspended' && a.resume) {
-        a.resume().then(function () {
-          if (!started && sampleBuf.length > 0) {
-            startPlayback();
-          } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
-            // 已 started 但没有任何 source 真正调度上 → 重新启动
-            started = false;
-            playing = false;
-            startPlayback();
-          }
-        }).catch(function () {});
+      if (a.state === 'suspended' || a.state === 'interrupted') {
+        if (a.resume) {
+          a.resume().then(function () {
+            if (!started && sampleBuf.length > 0) {
+              startPlayback();
+            } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
+              // 已 started 但没有任何 source 真正调度上 → 重新启动
+              started = false;
+              playing = false;
+              startPlayback();
+            }
+          }).catch(function () {});
+        }
       } else if (!started && sampleBuf.length > 0) {
         startPlayback();
       }
@@ -701,6 +714,9 @@ class VoiceCall {
     const self = this;
     // 用户主动插话 → 后续 AI 回复恢复正常出声
     this._dropAudio = false;
+    // 关键：按住瞬间处于用户手势调用栈（touchstart），同步解锁 AudioContext
+    // 否则 AI 回复音频到达时 resume 被 iOS 拒绝 → 无声；这是"第二次按下才有声"的根因
+    if (this.player) { try { this.player.unlock(); } catch (e) {} }
     if (this.connected && this._ws && this._ws.readyState === 1) {
       this._send({ type: 'input_audio_buffer.clear' });
     }

@@ -144,7 +144,9 @@ Page({
   onPageTouch() {
     this._ensureAudioCtx();
     const ac = this._audioCtx;
-    if (ac && ac.state === 'suspended' && ac.resume) {
+    if (ac && (ac.state === 'suspended' || ac.state === 'interrupted') && ac.resume) {
+      // 手势栈内同步 resume（iOS 要求），随后异步 retry 重放
+      try { ac.resume(); } catch (e) {}
       try {
         ac.resume().then(() => { if (this.voice) this.voice.retry(); }).catch(() => {});
       } catch (e) {}
