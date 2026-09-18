@@ -8,6 +8,7 @@ const PAGES = {
   mistakes: { title: '错题管理', render: renderMistakes },
   knowledge: { title: '知识大纲', render: renderKnowledge },
   voicepack: { title: '语音包管理', render: renderVp },
+  volc: { title: '火山用量', render: renderVolc },
   wxpay: { title: '微信支付', render: renderWxpay },
   voice: { title: '语音引擎设置', render: renderVoice }
 };

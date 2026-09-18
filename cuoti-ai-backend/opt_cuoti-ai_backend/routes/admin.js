@@ -752,6 +752,59 @@ router.delete('/knowledge/kps/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ================= 火山豆包语音用量·实时统计（系统实测口径） =================
+// 费用估算模型（豆包端到端实时语音大模型 Seeduplex 官方后付费单价）：
+//   输入音频 80元/百万token（1秒≈6.25 token）、输出音频 300元/百万token（1秒≈25 token）
+//   输出文本 80元/百万token（1秒播报≈5 token）；输入文本少量忽略
+// 双向时长假设：用户说 40% / AI 说 60%（讲题场景 AI 输出偏长）
+const SEEDUPLEX = {
+  inPerSecToken: 6.25, inPricePerM: 80,
+  outPerSecToken: 25,  outPricePerM: 300,
+  outTextPerSecToken: 5, outTextPricePerM: 80,
+  userRatio: 0.4, aiRatio: 0.6
+};
+function estimateVoiceCost(sec) {
+  const s = Math.max(0, sec || 0);
+  const inSec = s * SEEDUPLEX.userRatio, outSec = s * SEEDUPLEX.aiRatio;
+  const inTok = inSec * SEEDUPLEX.inPerSecToken;
+  const outTok = outSec * SEEDUPLEX.outPerSecToken;
+  const outTextTok = outSec * SEEDUPLEX.outTextPerSecToken;
+  return {
+    yuan: Math.round((inTok * SEEDUPLEX.inPricePerM + outTok * SEEDUPLEX.outPricePerM + outTextTok * SEEDUPLEX.outTextPricePerM) / 1e6 * 10000) / 10000,
+    inputTokens: Math.round(inTok), outputTokens: Math.round(outTok),
+    inYuan: Math.round(inTok * SEEDUPLEX.inPricePerM / 1e6 * 10000) / 10000,
+    outYuan: Math.round((outTok * SEEDUPLEX.outPricePerM + outTextTok * SEEDUPLEX.outTextPricePerM) / 1e6 * 10000) / 10000
+  };
+}
+router.get('/volc/usage', async (req, res) => {
+  const row = async (startSql) => {
+    const [r] = await pool.query(
+      `SELECT COUNT(*) calls, COALESCE(SUM(seconds),0) sec, COALESCE(SUM(total_bytes),0) bytes,
+              COALESCE(SUM(up_bytes),0) up, COALESCE(SUM(down_bytes),0) down, COALESCE(SUM(billed_mb),0) billed
+       FROM voice_calls WHERE created_at >= ${startSql}`
+    );
+    const mb = (b) => Math.round((Number(b) || 0) / 1024 / 1024 * 100) / 100;
+    const cost = estimateVoiceCost(r[0].sec);
+    return {
+      calls: r[0].calls, minutes: Math.round(Number(r[0].sec) / 60 * 10) / 10,
+      trafficMb: mb(r[0].bytes), upMb: mb(r[0].up), downMb: mb(r[0].down),
+      billedMb: Number(r[0].billed) || 0,
+      costYuan: cost.yuan, inYuan: cost.inYuan, outYuan: cost.outYuan,
+      inputTokens: cost.inputTokens, outputTokens: cost.outputTokens
+    };
+  };
+  res.json({ ok: true, data: {
+    today: await row("CURDATE()"),
+    month: await row("DATE_FORMAT(NOW(),'%Y-%m-01')"),
+    model: {
+      name: '豆包端到端实时语音大模型（Seeduplex）',
+      pricePerMin: 0.30,
+      inPrice: '80元/百万token(输入音频)', outPrice: '300元/百万token(输出音频)',
+      note: '按 voice_calls 实测时长/流量换算，官方账单以费用中心为准'
+    }
+  }});
+});
+
 // ---------- 工具 ----------
 function maskKey(k) {
   if (!k) return '';
