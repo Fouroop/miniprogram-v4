@@ -333,6 +333,7 @@ class VoiceCall {
     // 全双工状态
     this._micActive = false;     // 麦克风是否正在录音
     this._micPaused = false;     // 用户按住暂停收音（静音上传）
+    this._recStarted = false;    // 录音器是否已成功启动（防止对未启动录音器 stop 触发 not start 错误）
     this._userSpeaking = false;  // 服务端 VAD 检测到用户正在说话
     this._greeted = false;       // 是否已发送过招呼语（重连不重复）
     // 回声抑制状态（AI 播报期间暂停录音器，播报结束恢复）
@@ -839,11 +840,26 @@ class VoiceCall {
     });
     rm.onStop(function () {
       self._micActive = false;
+      self._recStarted = false;
     });
     rm.onError(function (e) {
+      const errMsg = (e && e.errMsg) || '';
+      // 可恢复：对"未启动"录音器 stop/start 状态竞争触发（基础库会异步报 not start），
+      // 录音器可能仍在工作 → 静默自愈重试，不弹错、不清麦克风标志（否则用户语音全部丢失）
+      if (errMsg.indexOf('not start') >= 0 || errMsg.indexOf('recorder not start') >= 0) {
+        console.warn('[VoiceCall] recorder not start（状态竞争），自动恢复');
+        self._recStarted = false;
+        if (self._micActive && !self._micPaused) {
+          setTimeout(function () {
+            if (self._micActive && !self._micPaused) self._startRecorder();
+          }, 300);
+        }
+        return;
+      }
       self._micActive = false;
+      self._recStarted = false;
       self._emit('onListening', false);
-      self._emit('onError', '录音失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
+      self._emit('onError', '录音失败：' + (errMsg || '请检查麦克风权限'));
     });
   }
 
@@ -851,8 +867,12 @@ class VoiceCall {
     const self = this;
     this._micActive = true;
     this._framesReceived = false;
-    // RecorderManager 是全局单例：start 前先 stop，清掉上个会话残留的录音状态
-    try { this.recorder.stop(); } catch (e) {}
+    // RecorderManager 是全局单例：仅在确认已启动时先 stop 清残留——
+    // 对未启动的录音器执行 stop 会异步触发 operateRecorder:fail recorder not start，
+    // 进而污染 onError 回调（这正是"没有出文字"的根因）
+    if (this._recStarted) {
+      try { this.recorder.stop(); } catch (e) {}
+    }
     try {
       this.recorder.start({
         duration: 600000, // 10 分钟上限
@@ -865,9 +885,11 @@ class VoiceCall {
         fail: function (e) {
           console.warn('[VoiceCall] rm.start fail:', e && e.errMsg);
           self._micActive = false;
+          self._recStarted = false;
           self._emit('onError', '录音启动失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
         }
       });
+      this._recStarted = true;
     } catch (e) {
       this._emit('onError', '无法启动麦克风');
       return;
@@ -941,6 +963,7 @@ class VoiceCall {
   commitMic() {
     if (this.recorder) {
       try { this.recorder.stop(); } catch (e) {}
+      this._recStarted = false;
     }
     this._micActive = false;
     this._micPaused = true;
@@ -975,6 +998,7 @@ class VoiceCall {
       try { this.recorder.stop(); } catch (e) {}
       this.recorder = null;
     }
+    this._recStarted = false;
     this._micActive = false;
     this._micPaused = false;
     clearTimeout(this._frameTimer);
