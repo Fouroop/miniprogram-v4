@@ -34,8 +34,8 @@ Page({
 
     // 语音通话状态（按住说话 PTT）
     callOn: false,
-    // 第一轮开场白：firstReplyDone=第一轮已说完（此后 PTT 常显可打断）
-    firstReplyDone: false,
+    // 全双工免按：无 PTT 轮次限制，AI 说话/收音状态由状态机驱动
+    firstReplyDone: true,
     // 回声诊断面板（开发者调试）
     debugVoice: false,
     voiceDiag: null,
@@ -350,8 +350,8 @@ Page({
     }
     let text;
     if (d.recognizing || d.userSpeaking) text = '正在听你说…';
-    else if (d.aiSpeaking) text = 'AI 正在回复…（按住可打断）';
-    else text = '按住下方按钮说话';
+    else if (d.aiSpeaking) text = 'AI 正在回复…（可直接打断）';
+    else text = '通话中 · 直接说话';
     this.setData({ callStatusText: text, headStatusText: text });
   },
 
@@ -428,9 +428,7 @@ Page({
           self._bumpScroll();
         },
         onAiSpeaking(on) {
-          // 播放开始/结束：第一轮播放结束 → 解锁 PTT 按住说话（此后 PTT 常显可打断）
-          if (on) self.setData({ aiSpeaking: true });
-          else self.setData({ aiSpeaking: false, firstReplyDone: true });
+          self.setData({ aiSpeaking: on });
           self._refreshStatus();
         },
         onUserSpeaking(on) { self.setData({ userSpeaking: on }); self._refreshStatus(); },
@@ -563,7 +561,7 @@ Page({
     this._saveHistory();
     this.setData({
       callOn: false,
-      firstReplyDone: false,
+      firstReplyDone: true,
       connected: false,
       callListening: false,
       aiSpeaking: false,

@@ -53,15 +53,9 @@
     </block>
     <block wx:else>
       <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">开始语音聊天</view>
-      <!-- 第一轮开场白：AI 说话中暂不显示按住说话，等说完再给 PTT -->
-      <view wx:elif="{{aiSpeaking && !firstReplyDone}}" class="ptt-btn waiting">AI 正在说话…</view>
-      <!-- 第一轮结束后 PTT 常显：AI 说话时按住=打断并收音 -->
-      <view wx:else class="ptt-btn {{micPaused ? 'paused' : ''}}"
-        bindtouchstart="onMicTouchStart"
-        bindtouchend="onMicTouchEnd"
-        bindtouchcancel="onMicTouchEnd">
-        {{micPaused ? '正在说话…' : '按住说话'}}
-      </view>
+      <!-- 全双工免按：AI 说话中显示状态（可直接打断）；平时直接说话即可 -->
+      <view wx:elif="{{aiSpeaking}}" class="ptt-btn waiting">AI 正在说话…（可直接打断）</view>
+      <view wx:else class="ptt-btn live">通话中 · 直接说话</view>
     </block>
   </view>
 

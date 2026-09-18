@@ -555,12 +555,19 @@ class VoiceCall {
         this._emit('onAiGreeting', greeting);
         this._send({ type: 'speech_text_buffer.commit', text: greeting });
       }
-      // PTT：接通后麦克风待命（不启动录音器，发静音帧保持流），按住按钮才开麦
-      this._openMicLoop();
+      // 全双工免按：接通后自动开麦（用户已点【开始语音聊天】= 授权），直接说话
+      this.startMicFullDuplex();
 
     } else if (t === 'conversation.item.input_audio_transcription.started') {
-      // PTT：仅展示识别状态；麦克风开关完全由按住按钮（interruptMic/commitMic）控制，
-      // 服务端 VAD 不干预收音（避免“没按按钮麦克风却开着”）
+      // 全双工免按：AI 播放中检测到用户说话 → 立即打断（Barge-in）
+      if (this._state === 'AI_SPEAKING' || this._state === 'THINKING') {
+        console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] VAD: user speech during AI playback -> interrupt');
+        if (this.player) { try { this.player.interrupt(); } catch (e) {} }
+        if (this.connected && this._ws && this._ws.readyState === 1) {
+          this._send({ type: 'input_audio_buffer.clear' });
+        }
+        this.setState('INTERRUPTED');
+      }
       this._userSpeaking = true;
       this._emit('onRecognizing', true);
       this._emit('onUserSpeaking', true);
@@ -806,58 +813,42 @@ class VoiceCall {
     console.log('[VoiceCall] 麦克风已恢复');
   }
 
-  /* ---------- AI 播报处理：静音防回声 + 按住插话（无 AEC 下避免 AI 自打断） ---------- */
+  /* ---------- AI 播报处理：静音防回声 + 直接说话打断（无 AEC 下避免 AI 自问自答） ---------- */
   _pauseMicForAi() {
     // AI 播报时静音麦克风：微信无回声消除，麦克风开放会把 AI 外放拾进去，
-    // 服务端 VAD 误判成用户说话 → AI 自问自答。要插话就按住 MIC 按钮（interruptMic）。
+    // 服务端 VAD 误判成用户说话 → AI 自问自答。全双工下由 VAD 检测用户真实说话自动打断。
     if (!this._micActive || this._micPaused || this._aiPausedMic) return;
-    if (this._userSpeaking) return; // 用户正在按住说话，不静音（避免打断）
+    if (this._userSpeaking) return; // 用户正在说话，不静音（VAD 已触发打断）
     this._aiPausedMic = true;
     this._micPaused = true;
     this.pcmCache = new Uint8Array(0);
-    console.log('[VoiceCall] AI 播报中，麦克风静音（防回声）；按住 MIC 可插话');
+    console.log('[VoiceCall] AI 播报中，麦克风数据不上传（防回声）；直接说话可打断');
   }
 
-  // 按住 MIC（PTT）：清空服务端缓冲（丢弃静音帧）、停止 AI 播放、启动录音器采集上传
-  interruptMic() {
+  /* ---------- 录音器初始化（RecorderManager 全局单例，只注册一次回调） ---------- */
+  _ensureRecorder() {
     const self = this;
-    // Barge-in：AI 播放中按住 → 立即打断（INTERRUPTED），否则进入用户说话状态
-    this.setState(this._state === 'AI_SPEAKING' ? 'INTERRUPTED' : 'USER_SPEAKING');
-    console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] AI interrupted / mic on');
-    // 关键：按住瞬间处于用户手势调用栈（touchstart），同步解锁 AudioContext
-    if (this.player) { try { this.player.unlock(); } catch (e) {} }
-    if (this.connected && this._ws && this._ws.readyState === 1) {
-      this._send({ type: 'input_audio_buffer.clear' });
-    }
-    if (this.player) this.player.interrupt();
-    this._aiPausedMic = false;
-    this._doneWaitForPlay = false;
-    this._postAiGuard = false;
-    clearTimeout(this._postAiGuardTimer);
-    this._micPaused = false;
-    this.pcmCache = new Uint8Array(0);
-
-    if (!this.recorder) {
-      const rm = wx.getRecorderManager();
-      this.recorder = rm;
-      if (!this._micInited) {
-        this._micInited = true;
-        // 实时 PCM 分片：每录满 frameSize 回调一次，边录边传
-        rm.onFrameRecorded(function (res) {
-          if (res && res.frameBuffer && self._micActive && !self._micPaused) {
-            self._appendPcmFrame(res.frameBuffer);
-          }
-        });
-        rm.onStop(function () {
-          self._micActive = false;
-        });
-        rm.onError(function (e) {
-          self._micActive = false;
-          self._emit('onListening', false);
-          self._emit('onError', '录音失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
-        });
+    if (this.recorder) return;
+    const rm = wx.getRecorderManager();
+    this.recorder = rm;
+    // 实时 PCM 分片：每录满 frameSize 回调一次，边录边传
+    rm.onFrameRecorded(function (res) {
+      if (res && res.frameBuffer && self._micActive && !self._micPaused) {
+        self._appendPcmFrame(res.frameBuffer);
       }
-    }
+    });
+    rm.onStop(function () {
+      self._micActive = false;
+    });
+    rm.onError(function (e) {
+      self._micActive = false;
+      self._emit('onListening', false);
+      self._emit('onError', '录音失败：' + ((e && e.errMsg) || '请检查麦克风权限'));
+    });
+  }
+
+  _startRecorder() {
+    const self = this;
     this._micActive = true;
     this._framesReceived = false;
     // RecorderManager 是全局单例：start 前先 stop，清掉上个会话残留的录音状态
@@ -882,27 +873,68 @@ class VoiceCall {
       return;
     }
     this._emit('onListening', true);
+  }
+
+  // 全双工免按开麦：点击【开始语音聊天】接通后自动开启，直接说话即可；
+  // AI 播放期间帧在 _appendPcmFrame 被状态机闸门丢弃（防回环），AI 说完自动恢复收音
+  startMicFullDuplex() {
+    this._aiPausedMic = false;
+    this._doneWaitForPlay = false;
+    this._postAiGuard = false;
+    clearTimeout(this._postAiGuardTimer);
+    this._micPaused = false;
+    this.pcmCache = new Uint8Array(0);
+    this._ensureRecorder();
+    this._startRecorder();
+    this.setState('LISTENING');
+    console.log('[VoiceCall] 全双工免按：麦克风已开启，直接说话（AI 说话时可直接打断）');
+  }
+
+  // 按住 MIC（PTT 备用）：清空服务端缓冲（丢弃静音帧）、停止 AI 播放、启动录音器采集上传
+  interruptMic() {
+    const self = this;
+    // Barge-in：AI 播放中按住 → 立即打断（INTERRUPTED），否则进入用户说话状态
+    this.setState(this._state === 'AI_SPEAKING' ? 'INTERRUPTED' : 'USER_SPEAKING');
+    console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] AI interrupted / mic on');
+    // 关键：按住瞬间处于用户手势调用栈（touchstart），同步解锁 AudioContext
+    if (this.player) { try { this.player.unlock(); } catch (e) {} }
+    if (this.connected && this._ws && this._ws.readyState === 1) {
+      this._send({ type: 'input_audio_buffer.clear' });
+    }
+    if (this.player) this.player.interrupt();
+    this._aiPausedMic = false;
+    this._doneWaitForPlay = false;
+    this._postAiGuard = false;
+    clearTimeout(this._postAiGuardTimer);
+    this._micPaused = false;
+    this.pcmCache = new Uint8Array(0);
+    this._ensureRecorder();
+    this._startRecorder();
     console.log('[VoiceCall] 按住说话：麦克风已开启');
   }
 
   _onAiPlayStopped() {
-    // PTT：AI 播报结束 → 解除 AI 静音标记，保持静音等待（用户按住才说话，不自动恢复收音）
+    // 全双工免按：AI 播完 → 立即恢复收音（300ms 回声保护后正常上传）
     if (this._aiPausedMic) {
       this._aiPausedMic = false;
       this._doneWaitForPlay = false;
       clearTimeout(this._playWaitTimer);
-      this._micPaused = true;
     }
+    this._resumeMicWithGuard();
   }
 
   resumeMicAfterResponse() {
-    // PTT：回复完成 → 保持静音等待（用户按住才说话）；静音帧持续发以保持连接
+    // 全双工免按：回复结束 → 若仍在播放则保持静音等播完，否则立即恢复收音
     this._aiPausedMic = false;
     this._doneWaitForPlay = false;
     clearTimeout(this._playWaitTimer);
     this._postAiGuard = false;
     clearTimeout(this._postAiGuardTimer);
-    this._micPaused = true;
+    if (this._state !== 'AI_SPEAKING') {
+      this._resumeMicWithGuard();
+    } else {
+      this._micPaused = true; // 播放未完，保持静音，_onAiPlayStopped 负责恢复
+    }
   }
 
   // 松开 MIC（PTT 说话结束）：停止录音器（关麦克风）、提交语音；静音帧循环继续保持流

@@ -235,6 +235,7 @@
   transform: scale(1.02);
 }
 .ptt-btn.start { background: #3B6EA5; box-shadow: 0 6rpx 24rpx rgba(59, 110, 165, 0.35); }
+.ptt-btn.live { background: #4C8A5C; box-shadow: 0 6rpx 24rpx rgba(76, 138, 92, 0.35); }
 .ptt-btn.waiting {
   background: #A8B8C8;
   box-shadow: none;
