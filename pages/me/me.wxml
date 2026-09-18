@@ -72,7 +72,6 @@
 
       <view class="ai-token-box">
         <text class="ai-token-text" user-select>{{apiToken || '生成中…'}}</text>
-        <view class="ai-token-copy" bindtap="copyApiToken" wx:if="{{apiToken}}">复制</view>
       </view>
 
       <view class="ai-actions">

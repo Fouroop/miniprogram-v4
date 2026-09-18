@@ -189,11 +189,6 @@ Page({
     this.setData({ showAiConnect: false });
   },
 
-  copyApiToken() {
-    if (!this.data.apiToken) return;
-    wx.setClipboardData({ data: this.data.apiToken });
-  },
-
   copyAiPrompt() {
     if (!this.data.promptPreview) return;
     wx.setClipboardData({ data: this.data.promptPreview, success: () => wx.showToast({ title: '提示词已复制，去粘贴给豆包吧', icon: 'none' }) });

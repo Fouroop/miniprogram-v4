@@ -170,27 +170,30 @@
   word-break: break-all;
   line-height: 1.6;
 }
-.ai-token-copy {
-  flex-shrink: 0;
-  background: #3B6EA5;
-  color: #fff;
-  font-size: 24rpx;
-  padding: 12rpx 28rpx;
-  border-radius: 999rpx;
-}
 .ai-actions { display: flex; gap: 20rpx; margin-bottom: 22rpx; }
 .ai-btn {
   flex: 1;
-  height: 80rpx;
+  height: 88rpx;
   border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
-  font-weight: 700;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+  line-height: 1;
 }
-.ai-btn.ghost { background: #F1EBDE; color: #6E675A; }
-.ai-btn.primary { background: #07C160; color: #fff; }
+.ai-btn::after { border: none; }
+/* 微信风格：次要按钮浅灰底，主按钮微信绿 */
+.ai-btn.ghost {
+  background: #F2F2F2;
+  color: #576B95;
+}
+.ai-btn.primary {
+  background: #07C160;
+  color: #fff;
+}
+.ai-btn.primary:active { opacity: 0.85; }
 .ai-prompt-preview {
   background: #F8F6F0;
   border-radius: 16rpx;
