@@ -15,3 +15,9 @@
 .qa-box.reason { background: #F6ECD9; border-color: #E6D2A8; }
 .qa-box.reason .qa-t { color: #C98A2D; }
 .actions { display: flex; gap: 16rpx; margin-top: 28rpx; }
+.btn-mastered {
+  color: #4C8A5C !important;
+  border-color: #BFDCC6 !important;
+  background: #EFF6F0 !important;
+}
+.btn-mastered[disabled] { opacity: 1; }

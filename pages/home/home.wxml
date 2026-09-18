@@ -19,23 +19,23 @@
     </view>
   </view>
 
-  <!-- 统计卡片 -->
+  <!-- 统计卡片（点击跳转） -->
   <view class="stat-grid">
-    <view class="stat-card red">
+    <view class="stat-card red" data-key="pending" bindtap="statTap">
       <view class="stat-num">{{stats.pending}}</view>
-      <view class="stat-lbl">待攻克</view>
+      <view class="stat-lbl">待攻克 ›</view>
     </view>
-    <view class="stat-card">
+    <view class="stat-card" data-key="mastered" bindtap="statTap">
       <view class="stat-num amber">{{stats.mastered}}</view>
-      <view class="stat-lbl">已掌握</view>
+      <view class="stat-lbl">已掌握 ›</view>
     </view>
-    <view class="stat-card green">
+    <view class="stat-card green" data-key="total" bindtap="statTap">
       <view class="stat-num">{{stats.total}}</view>
-      <view class="stat-lbl">错题总数</view>
+      <view class="stat-lbl">错题总数 ›</view>
     </view>
-    <view class="stat-card blue">
+    <view class="stat-card blue" data-key="week" bindtap="statTap">
       <view class="stat-num">{{stats.week}}</view>
-      <view class="stat-lbl">本周辅导</view>
+      <view class="stat-lbl">本周辅导 ›</view>
     </view>
   </view>
 
@@ -55,8 +55,8 @@
         <view class="entry-ic-text">题</view>
       </view>
       <view class="entry-body">
-        <view class="entry-name">九年级题库</view>
-        <view class="entry-desc">几何图形 · 函数 预置题目</view>
+        <view class="entry-name">题库</view>
+        <view class="entry-desc">全年级 · 几何函数 · 预置题目</view>
       </view>
     </view>
     <view class="entry" bindtap="goMistakes">

@@ -39,16 +39,27 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { stem, answer, analysis, subject, grade, difficulty, status } = req.body;
+  // 只更新传入字段，避免全字段覆盖把未传字段置 NULL
+  const allowed = ['stem', 'answer', 'analysis', 'subject', 'grade', 'difficulty', 'status', 'tag'];
+  const sets = [];
+  const vals = [];
+  allowed.forEach((k) => {
+    if (req.body[k] !== undefined) { sets.push(k + '=?'); vals.push(req.body[k]); }
+  });
+  if (!sets.length) return res.json({ ok: false, error: '没有可更新的字段' });
+  vals.push(req.params.id, req.user.id);
   const [r] = await pool.query(
-    'UPDATE questions SET stem=?, answer=?, analysis=?, subject=?, grade=?, difficulty=?, status=? WHERE id=? AND user_id=?',
-    [stem, answer, analysis, subject, grade, difficulty, status, req.params.id, req.user.id]
+    'UPDATE questions SET ' + sets.join(', ') + ' WHERE id=? AND user_id=?',
+    vals
   );
+  if (!r.affectedRows) return res.json({ ok: false, error: '只能编辑自己创建的题目或题目不存在' });
   res.json({ ok: true, data: { changed: r.affectedRows } });
 });
 
 router.delete('/:id', async (req, res) => {
-  await pool.query('DELETE FROM questions WHERE id=? AND (user_id IS NULL OR user_id=?)', [req.params.id, req.user.id]);
+  // 仅允许删除自己创建的题目
+  const [r] = await pool.query('DELETE FROM questions WHERE id=? AND user_id=?', [req.params.id, req.user.id]);
+  if (!r.affectedRows) return res.json({ ok: false, error: '只能删除自己创建的题目或题目不存在' });
   res.json({ ok: true });
 });
 

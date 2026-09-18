@@ -104,6 +104,21 @@ Page({
   goMistakes() { wx.switchTab({ url: '/pages/mistakes/mistakes' }); },
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
+  // 统计卡片点击：跳到对应的列表/页面
+  statTap(e) {
+    const k = e.currentTarget.dataset.key;
+    if (k === 'week') {
+      // 本周辅导 → 知识地图（查看辅导涉及的知识点掌握情况）
+      wx.switchTab({ url: '/pages/knowledge/knowledge' });
+      return;
+    }
+    // 错题相关：通过本地缓存把筛选条件带给错题本页
+    if (k === 'pending') wx.setStorageSync('mistakes_filter', { status: '未掌握' });
+    else if (k === 'mastered') wx.setStorageSync('mistakes_filter', { status: '已掌握' });
+    else if (k === 'total') wx.setStorageSync('mistakes_filter', {});
+    wx.switchTab({ url: '/pages/mistakes/mistakes' });
+  },
+
   openDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: '/pages/mistake-detail/mistake-detail?id=' + id });

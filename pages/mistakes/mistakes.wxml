@@ -22,6 +22,7 @@
   </view>
 
   <view class="m-card" wx:for="{{list}}" wx:key="id" data-id="{{item.id}}" bindtap="openDetail">
+    <view class="mc-more" catchtap="onItemMenu" data-id="{{item.id}}">···</view>
     <view class="mc-top">
       <text class="badge badge-subject">{{item.subject}}</text>
       <text class="badge {{item.status === '已掌握' ? 'badge-status-ok' : (item.status === '复习中' ? 'badge-status-review' : 'badge-status')}}">{{item.status}}</text>
@@ -35,4 +36,38 @@
   </view>
 
   <view class="empty" wx:if="{{!loading && !list.length}}">这个分类下还没有错题</view>
+
+  <!-- 编辑弹层 -->
+  <view class="mask" wx:if="{{editorVisible}}" bindtap="closeEditor"></view>
+  <view class="editor-panel {{editorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑错题</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.stem}}" data-f="stem" bindinput="onEditInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">错因</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.reason}}" data-f="reason" bindinput="onEditInput" placeholder="错因定位" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案/解析</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.answer}}" data-f="answer" bindinput="onEditInput" placeholder="正确答案与解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{editSubjects}}" value="{{editSubjectIndex}}" bindchange="onEditSubject">
+          <view class="ep-input ep-picker">{{editorForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{editorForm.tag}}" data-f="tag" bindinput="onEditInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveEditor">保存</view>
+    </view>
+  </view>
 </view>

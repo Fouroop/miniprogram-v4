@@ -12,7 +12,7 @@
 .head-note { font-size: 21rpx; color: #C98A2D; background: #F6ECD9; border-radius: 999rpx; padding: 8rpx 18rpx; }
 
 /* 筛选 */
-.tabs { display: flex; gap: 14rpx; margin-bottom: 24rpx; }
+.tabs { display: flex; flex-wrap: wrap; gap: 14rpx; margin-bottom: 16rpx; }
 .tab {
   padding: 14rpx 38rpx;
   border-radius: 999rpx;
@@ -96,3 +96,63 @@
 }
 .d-btn.ghost { background: #EFE6D4; color: #6E675A; }
 .d-btn.primary { background: #3B6EA5; color: #fff; }
+
+/* 详情头部 + 更多按钮 */
+.detail-head { display: flex; align-items: center; justify-content: space-between; }
+.detail-title { font-size: 30rpx; font-weight: 700; }
+.detail-more {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #A69C89;
+  padding: 4rpx 14rpx;
+  line-height: 1;
+}
+
+/* 编辑题目弹层 */
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 90;
+}
+.editor-panel {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: #FFFDF8;
+  border-radius: 32rpx 32rpx 0 0;
+  z-index: 99;
+  transform: translateY(110%);
+  transition: transform 0.25s ease;
+  padding: 30rpx 30rpx calc(30rpx + env(safe-area-inset-bottom));
+}
+.editor-up { transform: translateY(0); }
+.ep-title { font-size: 32rpx; font-weight: 700; text-align: center; margin-bottom: 24rpx; }
+.ep-body { max-height: 52vh; }
+.ep-row { margin-bottom: 22rpx; }
+.ep-label { font-size: 24rpx; color: #A69C89; margin-bottom: 10rpx; }
+.ep-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5rpx solid #E2D8C2;
+  border-radius: 16rpx;
+  background: #fff;
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: #2B2A26;
+  min-height: 80rpx;
+}
+.ep-area { min-height: 120rpx; }
+.ep-picker { display: flex; align-items: center; height: 80rpx; }
+.ep-btns { display: flex; gap: 20rpx; margin-top: 26rpx; }
+.ep-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.ep-cancel { background: #F1EBDE; color: #6E675A; }
+.ep-save { background: #07C160; color: #fff; }

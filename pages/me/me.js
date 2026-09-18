@@ -163,7 +163,7 @@ Page({
   showAbout() {
     wx.showModal({
       title: '关于错题AI辅导',
-      content: '版本 1.2.0\n拍照录错题 · AI 苏格拉底式追问 · 语音通话辅导（按语音包计费）',
+      content: '版本 1.2.0\n拍照录错题 · AI 思维引导式追问 · 语音通话辅导（按语音包计费）',
       showCancel: false
     });
   },

@@ -16,7 +16,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rpx;
+  gap: 4rpx;
 }
 .tab-icon {
   width: 36rpx;
@@ -30,4 +30,12 @@
 .tab-active .tab-text {
   color: #D64541;
   font-weight: 700;
+}
+/* 选中态：图标加浅红圆底，确保高亮清晰且图标不消失 */
+.tab-active .tab-icon {
+  border-radius: 50%;
+  background: #F7E3E0;
+  padding: 6rpx;
+  box-sizing: content-box;
+  transform: scale(1.08);
 }

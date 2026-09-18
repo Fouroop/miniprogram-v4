@@ -498,7 +498,7 @@ const MISTAKES = [
   { id:'m6', subject:'物理', diff:'中等', status:'ok', stem:'将 2kg 水从 20℃ 加热到 70℃，需要吸收多少热量？（c水=4.2×10³ J/(kg·℃)）', wrongAnswer:'Q = 4.2×10⁴ J', reason:'温度差计算错误', analysis:'Δt=70-20=50℃，Q=cmΔt=4.2×10³×2×50=4.2×10⁵ J。', date:'09-09', tag:'比热容' }
 ];
 
-/* ===== 苏格拉底对话剧本（按错因匹配，模拟AI引导） ===== */
+/* ===== 思维引导对话剧本（按错因匹配，模拟AI引导） ===== */
 const SCRIPTS = [
   { match:['公式记忆错误'], turns:[
     '先别急着看答案。这道题用到了哪个公式？你回忆一下二次函数顶点坐标的公式是什么？',
@@ -655,7 +655,7 @@ function viewLogin(){
       <div class="login-logo">
         <span class="brand-mark"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#D64541" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m7.5 12.5 3 3 6-6"/></svg></span>
         <h1 class="font-note">错题AI辅导</h1>
-        <p>拍照录错题 · AI苏格拉底式追问 · 逐个讲透</p>
+        <p>拍照录错题 · AI思维引导式追问 · 逐个讲透</p>
       </div>
       <div class="login-field">
         <label>账号</label>
@@ -726,7 +726,7 @@ function entries(){
     </button>
     <button class="entry" onclick="navigate('chat')">
       <span class="entry-ic green">${ICONS.chat}</span>
-      <span><h4>AI苏格拉底辅导</h4><p>不直接给答案，追问引导你讲透</p></span>
+      <span><h4>AI思维引导辅导</h4><p>不直接给答案，追问引导你讲透</p></span>
       <span class="go">${ICONS.arrow}</span>
     </button>
     <button class="entry" onclick="navigate('vip')">
@@ -833,7 +833,7 @@ function viewMistake(id){
         </div>
       </div>
       <div class="action-row">
-        <button class="btn btn-blue" onclick="startChat('${m.id}')">${ICONS.chat}AI 苏格拉底辅导</button>
+        <button class="btn btn-blue" onclick="startChat('${m.id}')">${ICONS.chat}AI 思维引导辅导</button>
         <button class="btn btn-ghost" onclick="markOk('${m.id}')">${ICONS.check}标记已掌握</button>
       </div>
     </div>
@@ -934,12 +934,12 @@ function saveOcr(){
   navigate('mistakes');
 }
 
-/* ===== AI 苏格拉底辅导 ===== */
+/* ===== AI 思维引导辅导 ===== */
 function viewChat(id){
   const m = id ? MISTAKES.find(x=>x.id===id) : null;
   if(!state.user.isVip){
     return shell(`
-      <h1 class="page-title font-note">AI 苏格拉底辅导</h1>
+      <h1 class="page-title font-note">AI 思维引导辅导</h1>
       <p class="page-sub">不直接给答案，用追问引导你把每道错题讲透</p>
       <div class="wall">
         <div class="lock">${ICONS.lock}</div>
@@ -979,7 +979,7 @@ function viewTextMode(m){
     <div class="chat-head">
       <span class="ai-dot">${ICONS.bulb}</span>
       <div>
-        <div class="t">AI 苏格拉底导师 · ${esc(topic)}</div>
+        <div class="t">AI 思维引导导师 · ${esc(topic)}</div>
         <div class="s">我不会直接给答案，会一步步问你，直到你自己想通</div>
       </div>
     </div>
@@ -1003,7 +1003,7 @@ function viewCallMode(m){
       <span class="call-avatar ${state.callOn?'ringing':''}">${ICONS.bulb}</span>
       <div class="call-info">
         <div class="call-title-row">
-          <span class="call-title">AI 苏格拉底导师 · ${esc(topic)}</span>
+          <span class="call-title">AI 思维引导导师 · ${esc(topic)}</span>
           <span class="call-actions">
             <button class="call-mini talk ${state.callListening?'listening':''}" onclick="toggleCallListening()" title="${volc?'打断 AI':'说一句'}">${volc?ICONS.stop:ICONS.mic}<em>${volc?'打断':'说一句'}</em></button>
             <button class="call-mini end" onclick="toggleCall()" title="${state.callOn?'结束通话':'开始通话'}">${state.callOn?ICONS.phoneEnd:ICONS.phone}<em>${state.callOn?'挂断':'打电话'}</em></button>
@@ -1063,7 +1063,7 @@ const VolcVoice = {
     }
     this.ws.onopen = () => {
       const stem = m ? m.stem : '';
-      const inst = '你是「苏格拉底式辅导老师」，正在用打电话的方式辅导一名中学生。\n'
+      const inst = '你是「思维引导式辅导老师」，正在用打电话的方式辅导一名中学生。\n'
         + '教学原则：绝不直接给出答案或完整解法。每次只提一个启发性的小问题，引导学生自己说出思路、发现错误、推出结论。\n'
         + '对话风格：亲切、耐心、口语化，像真人老师打电话一样自然，每轮回复不超过 3 句话。学生答对关键一步时明确肯定，再引导下一步。\n'
         + '当前辅导的题目：' + (stem || '学生自由提问，先了解他想问什么');
@@ -1652,7 +1652,7 @@ function initChatScript(){
 function viewVip(){
   const u = state.user;
   const plans = [
-    { key:'single', name:'单次辅导包', price:9.9, note:'适合试水体验', feats:['1 次 AI 苏格拉底辅导','1 个错题讲解视频','3 天有效'] },
+    { key:'single', name:'单次辅导包', price:9.9, note:'适合试水体验', feats:['1 次 AI 思维引导辅导','1 个错题讲解视频','3 天有效'] },
     { key:'monthly', name:'月度 VIP', price:39, note:'按月灵活', feats:['AI 辅导不限次','错题视频讲解不限次','智能错题分析报告','同类题推荐'] },
     { key:'yearly', name:'年度 VIP', price:199, note:'一年畅学，最划算', feats:['含月度 VIP 全部权益','全年错题数据报告','新功能优先体验','赠送 3 次人工答疑'] }
   ];

@@ -5,7 +5,7 @@
   <view class="chat-head">
     <view class="ai-dot {{callOn ? 'live' : ''}}">AI</view>
     <view class="chat-head-t">
-      <view class="chat-title">AI 苏格拉底导师 · {{topic}}</view>
+      <view class="chat-title">AI 思维引导导师 · {{topic}}</view>
       <view class="chat-sub">{{headStatusText}}</view>
     </view>
     <view class="chat-head-action {{callOn ? 'danger' : ''}}" bindtap="onHeadAction">
@@ -20,7 +20,7 @@
   </view>
 
   <!-- 聊天记录（文字 + 语音统一） -->
-  <scroll-view class="chat-body" scroll-y scroll-top="{{scrollTop}}" scroll-with-animation enable-flex>
+  <scroll-view class="chat-body" scroll-y scroll-into-view="{{scrollIntoViewId}}" scroll-with-animation enable-flex>
     <view class="msg {{item.role === 'ai' ? 'ai' : 'user'}}" wx:for="{{messages}}" wx:key="index">
       <view class="mini-av">{{item.role === 'ai' ? 'AI' : '我'}}</view>
       <view class="bubble {{item.role === 'user' && item.voice ? 'voice' : ''}}" bindlongpress="onMsgLongPress" data-idx="{{index}}">
@@ -32,7 +32,8 @@
       <view class="mini-av">AI</view>
       <view class="bubble typing"><text class="dot-i"></text><text class="dot-i"></text><text class="dot-i"></text></view>
     </view>
-    <view style="height:20rpx"></view>
+    <!-- 滚动锚点：始终跟随到最新内容 -->
+    <view id="msg-end" style="height:2rpx"></view>
   </scroll-view>
 
   <!-- 底部输入栏：微信聊天式（语音 / 键盘切换） -->

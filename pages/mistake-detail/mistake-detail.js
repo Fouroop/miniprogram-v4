@@ -22,6 +22,7 @@ Page({
   },
 
   markMastered() {
+    if (this.data.detail && this.data.detail.status === '已掌握') return; // 已掌握态按钮禁用
     request('/mistakes/' + this.data.id, { method: 'PUT', data: { status: '已掌握' } })
       .then(() => {
         wx.showToast({ title: '已标记为掌握', icon: 'success' });

@@ -22,8 +22,8 @@
     </view>
 
     <view class="actions">
-      <button class="btn btn-blue" style="flex:1" bindtap="goChat">AI 苏格拉底辅导</button>
-      <button class="btn btn-ghost" bindtap="markMastered">标记已掌握</button>
+      <button class="btn btn-blue" style="flex:1" bindtap="goChat">AI 思维引导</button>
+      <button class="btn btn-ghost {{detail.status === '已掌握' ? 'btn-mastered' : ''}}" style="flex:1" bindtap="markMastered" disabled="{{detail.status === '已掌握'}}">{{detail.status === '已掌握' ? '已掌握 ✓' : '标记已掌握'}}</button>
     </view>
     <button class="btn btn-ghost btn-block" style="margin-top:16rpx;color:#D64541" bindtap="remove">删除错题</button>
   </view>

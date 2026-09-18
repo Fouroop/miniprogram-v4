@@ -7,7 +7,8 @@
     data-index="{{index}}"
     bindtap="switchTab"
   >
-    <image class="tab-icon" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" />
+    <!-- 图标固定用普通态，选中态通过样式表现（避免切换 base64 渲染导致图标消失） -->
+    <image class="tab-icon" src="{{item.iconPath}}" />
     <text class="tab-text">{{item.text}}</text>
   </view>
 </view>

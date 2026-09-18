@@ -7,24 +7,16 @@
         </view>
       </view>
       <view class="brand-name">错题<text class="brand-red">AI辅导</text></view>
-      <view class="brand-slogan">拍照录错题 · AI苏格拉底式追问 · 逐个讲透</view>
+      <view class="brand-slogan">拍照录错题 · AI思维引导式追问 · 逐个讲透</view>
     </view>
 
-    <view class="login-field">
-      <text class="login-label">账号</text>
-      <input class="login-input" placeholder-class="input-ph" placeholder="账号" value="{{username}}" bindinput="onUserInput" />
+    <!-- 仅微信一键登录（首次自动注册） -->
+    <view class="wx-login">
+      <button class="btn btn-primary btn-wx" loading="{{loading}}" bindtap="wxLogin">
+        <text class="wx-ic">微</text> 微信一键登录
+      </button>
+      <view class="wx-note">微信登录自动注册，昵称头像可在「我的」页随时设置</view>
     </view>
-    <view class="login-field">
-      <text class="login-label">密码</text>
-      <input class="login-input" password placeholder-class="input-ph" placeholder="密码" value="{{password}}" bindinput="onPassInput" />
-    </view>
-
-    <!-- 账号登录 / 微信一键登录 并排 -->
-    <view class="btn-row">
-      <button class="btn btn-ghost btn-flex" loading="{{loading2}}" bindtap="doLogin">账 号 登 录</button>
-      <button class="btn btn-primary btn-flex" loading="{{loading}}" bindtap="wxLogin">微信一键登录</button>
-    </view>
-    <view class="wx-note">微信登录自动注册，昵称头像可在「我的」页随时设置</view>
 
     <!-- 用户协议同意 -->
     <view class="agree-row" bindtap="toggleAgree">

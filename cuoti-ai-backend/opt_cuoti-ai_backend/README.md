@@ -7,7 +7,7 @@ Node.js 18+ / Express / MySQL 8.0 / JWT / bcryptjs。
 ```
 backend/
 ├── server.js            # 入口，挂载路由 + 托管 /admin 静态文件
-├── config.js            # 端口/DB/JWT/苏格拉底人设 配置
+├── config.js            # 端口/DB/JWT/思维引导人设 配置
 ├── package.json
 ├── db/
 │   ├── init.sql         # 建库建表 + 示例题目 + 默认配置
@@ -20,7 +20,7 @@ backend/
     ├── home.js          # 首页统计
     ├── questions.js     # 题库 CRUD
     ├── mistakes.js      # 错题 CRUD + OCR（演示模拟）+ 复习标记
-    ├── ai.js            # AI 对话（苏格拉底式）+ 对话历史 + 语音配置下发
+    ├── ai.js            # AI 对话（思维引导式）+ 对话历史 + 语音配置下发
     ├── vip.js           # 套餐/订单/激活码
     ├── user.js          # 我的资料/使用统计
     └── admin.js         # 管理端全部接口
@@ -146,7 +146,7 @@ curl -X POST http://127.0.0.1:8651/api/ai/chat \
 
 ## 关键实现说明
 
-1. **AI 文字对话**：`routes/ai.js` 每次从 `llm_configs` 取 `is_active=1` 的配置，用 `fetch` 调 OpenAI 兼容 `/chat/completions`，system prompt 注入苏格拉底人设 + 关联错题题干；未配置真实 key 时走内置兜底苏格拉底话术，接口永远可用。
+1. **AI 文字对话**：`routes/ai.js` 每次从 `llm_configs` 取 `is_active=1` 的配置，用 `fetch` 调 OpenAI 兼容 `/chat/completions`，system prompt 注入思维引导人设 + 关联错题题干；未配置真实 key 时走内置兜底思维引导话术，接口永远可用。
 2. **语音配置下发**：`GET /api/ai/voice-config` 只返回 `proxy_url` + `voice_id`，API Key 仅存服务端；管理端查看时脱敏（前4后4）。
 3. **数据隔离**：学生端所有业务查询按 `user_id` 过滤；公共题 `user_id IS NULL` 与个人题同时可见。
 4. **VIP**：演示环境下单即模拟支付成功，直接开通 VIP；激活码批量生成后学生端 `/api/vip/activate` 兑换。

@@ -28,7 +28,7 @@ async function callLlm(llm, messages) {
   return data.choices?.[0]?.message?.content || '';
 }
 
-// 构造 system prompt（苏格拉底人设 + 题干）
+// 构造 system prompt（思维引导人设 + 题干）
 function buildSystem(mistake) {
   let sys = config.socraticSystem;
   if (mistake) {
@@ -100,7 +100,7 @@ router.post('/chat', async (req, res) => {
   res.json({ ok: true, data: { conversation_id: convId, reply } });
 });
 
-// 兜底回复（苏格拉底式）
+// 兜底回复（思维引导式）
 function fallbackReply(userInput) {
   const q = userInput.trim();
   if (/你好|hi|hello|在吗/i.test(q)) return '你好呀！别着急看答案，先告诉我：这道题你卡在哪一步了？';

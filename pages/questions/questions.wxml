@@ -2,16 +2,22 @@
   <!-- 顶部 -->
   <view class="head">
     <view class="head-l">
-      <view class="head-title">九年级题库</view>
-      <view class="head-sub">几何图形 · 函数专题 · {{total}} 题</view>
+      <view class="head-title">题库</view>
+      <view class="head-sub">全年级预置题目 · {{total}} 题</view>
     </view>
     <view class="head-note">预置题目 · 可加入错题本</view>
   </view>
 
-  <!-- 筛选 -->
+  <!-- 年级筛选 -->
   <view class="tabs">
-    <view class="tab {{cur === item.key ? 'on' : ''}}" wx:for="{{tabs}}" wx:key="key"
-          data-key="{{item.key}}" bindtap="switchTab">{{item.name}}</view>
+    <view class="tab {{curGrade === item.key ? 'on' : ''}}" wx:for="{{gradeTabs}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="switchGrade">{{item.name}}</view>
+  </view>
+
+  <!-- 专题筛选 -->
+  <view class="tabs">
+    <view class="tab {{curTopic === item.key ? 'on' : ''}}" wx:for="{{topicTabs}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="switchTopic">{{item.name}}</view>
   </view>
 
   <!-- 列表 -->
@@ -39,7 +45,10 @@
   <!-- 题目详情弹层 -->
   <view class="mask" wx:if="{{showDetail}}" bindtap="closeDetail"></view>
   <view class="detail" wx:if="{{showDetail && curQ}}">
-    <view class="detail-title">题目详情</view>
+    <view class="detail-head">
+      <view class="detail-title">题目详情</view>
+      <view class="detail-more" catchtap="onQMenu" data-id="{{curQ.id}}">···</view>
+    </view>
     <image wx:if="{{curQ.image_url}}" class="detail-img" src="{{curQ.image_url}}" mode="widthFix" />
     <scroll-view class="detail-body" scroll-y>
       <view class="sec-label">题目</view>
@@ -52,6 +61,52 @@
     <view class="detail-actions">
       <view class="d-btn ghost" bindtap="askQuestion">问这道题</view>
       <view class="d-btn primary" bindtap="addMistake">{{adding ? '加入中…' : '加入错题本'}}</view>
+    </view>
+  </view>
+
+  <!-- 编辑题目弹层 -->
+  <view class="mask" wx:if="{{qEditorVisible}}" bindtap="closeQEditor"></view>
+  <view class="editor-panel {{qEditorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑题目</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{qForm.stem}}" data-f="stem" bindinput="onQInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案</view>
+        <textarea class="ep-input ep-area" value="{{qForm.answer}}" data-f="answer" bindinput="onQInput" placeholder="正确答案" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">解析</view>
+        <textarea class="ep-input ep-area" value="{{qForm.analysis}}" data-f="analysis" bindinput="onQInput" placeholder="解题思路 / 解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{qSubjects}}" value="{{qSubjectIndex}}" bindchange="onQSubject">
+          <view class="ep-input ep-picker">{{qForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">年级</view>
+        <picker range="{{qGrades}}" value="{{qGradeIndex}}" bindchange="onQGrade">
+          <view class="ep-input ep-picker">{{qForm.grade || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">难度</view>
+        <picker range="{{qDiffs}}" value="{{qDiffIndex}}" bindchange="onQDiff">
+          <view class="ep-input ep-picker">{{qForm.difficulty || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{qForm.tag}}" data-f="tag" bindinput="onQInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeQEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveQEditor">保存</view>
     </view>
   </view>
 </view>

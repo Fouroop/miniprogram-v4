@@ -136,8 +136,8 @@
 .input-bar {
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  padding: 16rpx 20rpx;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
   background: #FFFDF8;
   border: 1.5rpx solid #E2D8C2;
   border-top: none;
@@ -145,8 +145,8 @@
   flex-shrink: 0;
 }
 .input-mode-btn {
-  width: 72rpx;
-  height: 72rpx;
+  width: 88rpx;
+  height: 88rpx;
   border-radius: 50%;
   background: #F6F0E4;
   border: 1.5rpx solid #E2D8C2;
@@ -156,33 +156,40 @@
   flex-shrink: 0;
 }
 .input-mode-btn.on { background: #E3EDF7; border-color: #BBD2E8; }
-.im-icon { font-size: 34rpx; line-height: 1; }
+.im-icon { font-size: 40rpx; line-height: 1; }
 .input-box {
   flex: 1;
   min-width: 0;
-  padding: 20rpx 26rpx;
-  border: 1.5rpx solid #CFC2A6;
-  border-radius: 999rpx;
-  background: #F6F0E4;
-  font-size: 28rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
+  border: 2rpx solid #E5E5E5;
+  border-radius: 44rpx;
+  background: #F7F7F7;
+  font-size: 30rpx;
   box-sizing: border-box;
+  color: #2B2A26;
 }
-.input-ph { color: #A69C89; font-size: 27rpx; }
+.input-ph { color: #B2B2B2; font-size: 29rpx; }
 .send-btn {
   flex-shrink: 0;
-  padding: 20rpx 34rpx;
-  border-radius: 999rpx;
-  background: #3B6EA5;
+  height: 88rpx;
+  padding: 0 44rpx;
+  border-radius: 44rpx;
+  background: #07C160;
   color: #fff;
-  font-size: 27rpx;
-  font-weight: 700;
+  font-size: 30rpx;
+  font-weight: 600;
   border: none;
-  line-height: 1;
+  line-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .send-btn::after { border: none; }
+.send-btn[disabled] { background: #9AD8B3; }
 .ptt-btn {
   flex: 1;
-  height: 84rpx;
+  height: 96rpx;
   border-radius: 999rpx;
   display: flex;
   align-items: center;

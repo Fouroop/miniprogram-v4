@@ -91,7 +91,7 @@ setTimeout(async () => {
     assert(r.ok && 'total' in r.data, 'stats keys');
   });
 
-  await t('AI 对话 /ai/chat（兜底苏格拉底回复）', async () => {
+  await t('AI 对话 /ai/chat（兜底思维引导回复）', async () => {
     const r = await fetch(base + '/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + userToken }, body: JSON.stringify({ content: '你好，这道题怎么做' }) }).then(x => x.json());
     assert(r.ok && typeof r.data.reply === 'string' && r.data.reply.length > 0, 'no reply');
     console.log('     AI回复示例:', r.data.reply.slice(0, 50) + '...');

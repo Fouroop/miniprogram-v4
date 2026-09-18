@@ -130,6 +130,17 @@ function createStreamingPlayer(opts) {
     scheduleNewChunks();
   }
 
+  // 启动前先解锁 AudioContext（iOS 无手势创建为 suspended，直接调度会无声）
+  function startWhenReady() {
+    if (started) return;
+    var a = ensureAc();
+    if (a.state === 'suspended' && a.resume) {
+      a.resume().then(function () { startPlayback(); }).catch(function () { startPlayback(); });
+    } else {
+      startPlayback();
+    }
+  }
+
   return {
     enqueue(buf) {
       if (!buf || !buf.byteLength) return;
@@ -146,17 +157,17 @@ function createStreamingPlayer(opts) {
 
       if (opts && opts.onChunk) opts.onChunk(sampleBuf.length);
 
-      // 未开始播放 + 积累够了 → 启动
+      // 未开始播放 + 积累够了 → 先尝试解锁 AudioContext（iOS 无手势创建时为 suspended），再启动
       if (!started && sampleBuf.length >= STREAM_START_SAMPLES) {
-        startPlayback();
+        startWhenReady();
       } else if (started) {
         // 已在播放 → 调度新到的块
         scheduleNewChunks();
       }
     },
     flush() {
-      // 音频流结束信号：确保播放已启动
-      if (!started && sampleBuf.length > 0) startPlayback();
+      // 音频流结束信号：确保播放已启动（先解锁再启动）
+      if (!started && sampleBuf.length > 0) startWhenReady();
     },
     interrupt() {
       // 插话/打断：立即停止正在播放的 AI 音频并丢弃待播缓冲（保留 AudioContext 复用）
@@ -169,14 +180,21 @@ function createStreamingPlayer(opts) {
       if (opts && opts.onPlay) opts.onPlay(false);
     },
     retry() {
-      // iOS AudioContext 解锁后重试
-      if (!started && sampleBuf.length > 0) {
-        var a = ensureAc();
-        if (a.state === 'suspended' && a.resume) {
-          a.resume().then(function () { startPlayback(); }).catch(function () {});
-        } else {
-          startPlayback();
-        }
+      // iOS AudioContext 解锁后重试（覆盖"已启动但 source 挂在 suspended 时间线"的场景）
+      var a = ensureAc();
+      if (a.state === 'suspended' && a.resume) {
+        a.resume().then(function () {
+          if (!started && sampleBuf.length > 0) {
+            startPlayback();
+          } else if (started && scheduledSources.length === 0 && sampleBuf.length > 0) {
+            // 已 started 但没有任何 source 真正调度上 → 重新启动
+            started = false;
+            playing = false;
+            startPlayback();
+          }
+        }).catch(function () {});
+      } else if (!started && sampleBuf.length > 0) {
+        startPlayback();
       }
     },
     setVolume(v) {

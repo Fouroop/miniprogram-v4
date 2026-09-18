@@ -20,8 +20,9 @@ Component({
   methods: {
     switchTab(e) {
       const ds = e.currentTarget.dataset;
+      // dataset 里的 index 是字符串，转数字保证 selected === index 生效
+      this.setData({ selected: Number(ds.index) });
       wx.switchTab({ url: ds.path });
-      this.setData({ selected: ds.index });
     }
   }
 });

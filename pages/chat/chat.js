@@ -7,9 +7,9 @@ const app = getApp();
 // 与下行 PCM 采样率保持一致，避免重采样
 const DOWN_RATE = 24000;
 
-// 苏格拉底人设
+// 思维引导人设
 const PERSONA =
-  '你是「苏格拉底式辅导老师」，正在用打电话的方式辅导一名中学生。\n' +
+  '你是「思维引导式辅导老师」，正在用打电话的方式辅导一名中学生。\n' +
   '教学原则：绝不直接给出答案或完整解法。每次只提一个启发性的小问题，引导学生自己说出思路、发现错误、推出结论。\n' +
   '对话风格：亲切、耐心、口语化，像真人老师打电话一样自然，每轮回复不超过 3 句话。学生答对关键一步时明确肯定，再引导下一步。';
 
@@ -23,11 +23,12 @@ Page({
     stemOpen: true,
     headStatusText: '支持文字与语音提问',
     topic: '自由提问',
-    scrollTop: 0,
+    scrollIntoViewId: '',
 
     // 聊天记录（文字 + 语音统一列表）
     messages: [],
     inputText: '',
+    seedSession: false,
     typing: false,
     conversationId: null,
 
@@ -60,12 +61,23 @@ Page({
     // 恢复本地保存的聊天记录（重新进入页面不丢）
     this._restoreHistory();
 
-    // 从题库"问这道题"进入：自动以文字发起讲解，AI 直接开始回答
+    // 从题库"问这道题"进入：与错题辅导一致——带上题干、自动语音连接、AI 开口讲解
     const seed = wx.getStorageSync('chat_seed');
     if (seed && seed.stem) {
       wx.removeStorageSync('chat_seed');
-      this.setData({ inputMode: 'text', headStatusText: 'AI 正在讲解…' });
-      setTimeout(() => this._postText('帮我讲这道题：' + seed.stem), 300);
+      this.setData({
+        seedSession: true,
+        mistake: {
+          stem: seed.stem,
+          answer: seed.answer || '',
+          subject: seed.subject || '数学',
+          tag: seed.tag || ''
+          // 题库题没有错因定位，reason 留空（开场白不会提"错因"）
+        },
+        topic: (seed.subject || '数学') + (seed.tag ? ' · ' + seed.tag : ''),
+        headStatusText: '正在连接 AI 导师…'
+      });
+      this._autoStartVoice();
       return;
     }
 
@@ -99,7 +111,11 @@ Page({
           cancelText: '先用文字',
           success: (r) => {
             if (r.confirm) wx.switchTab({ url: '/pages/me/me' });
-            else self.setData({ inputMode: 'text' });
+            else {
+              self.setData({ inputMode: 'text' });
+              // 题库/错题进入：自动转文字讲解，避免进入后没反应
+              self._fallbackTextAsk();
+            }
           }
         });
         return;
@@ -108,9 +124,17 @@ Page({
       if (self.data.inputMode !== 'voice') return;
       self._ensureVoice().catch(() => {});
     }).catch(() => {
-      // 余额不足或网络异常：静默回文字输入（弹窗由 /voice/start 返回后统一处理）
+      // 余额不足或网络异常：静默回文字输入，有题则自动转文字讲解
       self.setData({ inputMode: 'text' });
+      self._fallbackTextAsk();
     });
+  },
+
+  // 语音不可用时：带着当前题目自动发一条文字讲解请求（题库/错题进入）
+  _fallbackTextAsk() {
+    if (this.data.mistake && this.data.mistake.stem) {
+      this._postText('帮我讲这道题：' + this.data.mistake.stem);
+    }
   },
 
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
@@ -138,9 +162,9 @@ Page({
 
   toggleStem() { this.setData({ stemOpen: !this.data.stemOpen }); },
 
-  // 新消息时滚动到底部（微信聊天跟随效果）
+  // 新消息时滚动到底部锚点（'' 与 'msg-end' 交替，保证每次都触发跟随）
   _bumpScroll() {
-    this.setData({ scrollTop: (this.data.scrollTop || 0) + 1 });
+    this.setData({ scrollIntoViewId: this.data.scrollIntoViewId ? '' : 'msg-end' });
   },
 
   /* ---------- 聊天记录（统一：文字 + 语音）删除 ---------- */
@@ -175,7 +199,7 @@ Page({
       success(r) {
         if (!r.confirm) return;
         self.setData({
-          messages: [{ role: 'ai', text: '你好，我是你的 AI 苏格拉底导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。' }],
+          messages: [{ role: 'ai', text: '你好，我是你的 AI 思维引导导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。' }],
           conversationId: null
         });
         self._saveHistory();
@@ -187,6 +211,8 @@ Page({
 
   /* ---------- 聊天记录本地持久化（文字+语音统一） ---------- */
   _histKey() {
+    // 题库"问这道题"会话独立存储，避免与自由提问记录混在一起
+    if (this.data.seedSession) return 'chat_seed_' + (this.data.topic || 'q');
     return 'chat_' + (this.data.mistakeId || 'free');
   },
   _saveHistory() {
@@ -204,6 +230,7 @@ Page({
         messages: saved.messages,
         conversationId: saved.conversationId || null
       });
+      this._bumpScroll();
       return;
     }
     // 兼容旧版：chat_text_xxx（文字） + chat_voice_xxx（语音）合并
@@ -225,10 +252,11 @@ Page({
     if (!msgs.length) {
       msgs = [{
         role: 'ai',
-        text: '你好，我是你的 AI 苏格拉底导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。'
+        text: '你好，我是你的 AI 思维引导导师。我不会直接给答案，会一步步问你，直到你自己想通。开始吧。'
       }];
     }
     this.setData({ messages: msgs });
+    this._bumpScroll();
   },
 
   /* ---------- 文字对话 ---------- */
@@ -386,9 +414,7 @@ Page({
           self._refreshStatus();
         }
       });
-      const greeting = self.data.mistake
-        ? '你好，我看到你在这道题上卡住了。先别急，说说你的思路，我们一步一步来。'
-        : '你好，我是你的 AI 辅导老师。想聊哪道题，直接说就行。';
+      const greeting = self._buildGreeting();
       // 确保题干已就绪再建会话（用户进页面立即按 MIC 时，避免 AI 不知道题目）
       const prep = self.data.mistakeId && !self.data.mistake
         ? request('/mistakes/' + self.data.mistakeId).then((m) => {
@@ -396,12 +422,45 @@ Page({
           }).catch(() => {})
         : Promise.resolve();
       prep.then(() => {
-        self.voice.start(self.buildInstructions(), greeting, self._audioCtx);
+        // 题干就绪后重新生成开场白（结合刚拿到的题目/错因），再开口
+        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx);
       });
     });
     this._voiceConnecting = p;
     p.then(() => { self._voiceConnecting = null; }, () => { self._voiceConnecting = null; });
     return p;
+  },
+
+  // 开场白：结合昵称 / 题目 / 错因，随机变体，避免每次固定同一句话
+  _buildGreeting() {
+    const user = app.globalData.user || {};
+    const nick = (user.nickname && String(user.nickname).trim()) || '同学';
+    const m = this.data.mistake;
+    const cut = (s, n) => {
+      s = String(s || '').trim();
+      return s.length > n ? s.slice(0, n) + '…' : s;
+    };
+    if (m && m.stem) {
+      const stem = cut(m.stem, 36);
+      const reason = m.reason ? cut(m.reason, 26) : '';
+      if (reason) {
+        return [
+          nick + '你好，我是你的 AI 思维引导导师。这道题：' + stem + '。看到你的错因和' + reason + '有关，先别急，说说你当时是怎么想的？',
+          '嗨，' + nick + '！这道题：' + stem + '，你的错因定位在' + reason + '。咱们就从这一步开始捋，你现在卡在哪？',
+          nick + '，我看到你在这道题上卡住了。错因是' + reason + '，这很常见。你先说说你的思路，我们一步一步来。'
+        ][Math.floor(Math.random() * 3)];
+      }
+      return [
+        nick + '你好，我是你的 AI 思维引导导师。这道题：' + stem + '。先说说你的思路，卡在哪一步？',
+        '嗨，' + nick + '！这道题：' + stem + '。别急着要答案，你先说说准备从哪入手？',
+        nick + '，我看到你在这道题上卡住了。先说说你现在的想法，咱们一起把它想透。'
+      ][Math.floor(Math.random() * 3)];
+    }
+    return [
+      nick + '你好，我是你的 AI 思维引导导师。想聊哪道题，直接说就行，我们一起把它想透。',
+      '嗨，' + nick + '！我是你的 AI 辅导老师。今天想攻克哪道题？说出来听听。',
+      nick + '你好呀！我是 AI 思维引导导师。有什么想不通的题尽管问我，我不会直接给答案，会一步步带着你想明白。'
+    ][Math.floor(Math.random() * 3)];
   },
 
   // 头部右侧操作：通话中=挂断，否则=清空聊天

@@ -47,35 +47,38 @@
   color: #6E675A;
   margin-top: 8rpx;
 }
-.login-field { margin-bottom: 32rpx; }
-.login-label {
-  display: block;
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #6E675A;
-  margin-bottom: 12rpx;
-}
-.login-input {
-  width: 100%;
-  padding: 36rpx 28rpx;
-  border: 1.5rpx solid #CFC2A6;
-  border-radius: 20rpx;
-  background: #F6F0E4;
-  font-size: 32rpx;
-  box-sizing: border-box;
-}
-.input-ph {
-  color: #A69C89;
-  font-size: 30rpx;
-}
 
-/* 账号登录 / 微信登录 并排 */
-.btn-row {
-  display: flex;
-  gap: 20rpx;
-  margin-top: 16rpx;
+/* 微信一键登录（仅微信登录） */
+.wx-login {
+  margin-top: 10rpx;
 }
-.btn-flex { flex: 1; }
+.btn-wx {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 30rpx 0;
+  border-radius: 24rpx;
+  font-size: 32rpx;
+  background: #07C160;
+  border-color: #07C160;
+  color: #fff;
+  font-weight: 700;
+}
+.btn-wx::after { border: none; }
+.btn-wx[disabled] { background: #9AD8B3; color: #fff; }
+.wx-ic {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  border-radius: 10rpx;
+  background: #fff;
+  color: #07C160;
+  font-size: 26rpx;
+  font-weight: 700;
+  text-align: center;
+}
 
 .wx-note {
   margin-top: 24rpx;

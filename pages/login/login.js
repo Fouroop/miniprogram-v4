@@ -4,22 +4,16 @@ const app = getApp();
 
 Page({
   data: {
-    username: '',
-    password: '',
     loading: false,
-    loading2: false,
     agreed: false
   },
-
-  onUserInput(e) { this.setData({ username: e.detail.value }); },
-  onPassInput(e) { this.setData({ password: e.detail.value }); },
 
   toggleAgree() { this.setData({ agreed: !this.data.agreed }); },
 
   showAgreement() {
     wx.showModal({
       title: '用户协议',
-      content: '欢迎使用错题AI辅导。本应用为中小学生提供错题记录、AI答疑与学习辅导服务。\n\n1. 使用本服务需注册账号，请妥善保管账号信息；\n2. 错题与学习数据仅用于为你提供个性化辅导，不会向第三方出售；\n3. AI 辅导内容由人工智能生成，仅供参考，请以教材和老师讲解为准；\n4. 请勿上传违法违规、侵犯他人权益的内容；\n5. 违反本协议可能导致账号被限制使用。',
+      content: '欢迎使用错题AI辅导。本应用为中小学生提供错题记录、AI答疑与学习辅导服务。\n\n1. 使用本服务需微信登录，请妥善保管微信账号信息；\n2. 错题与学习数据仅用于为你提供个性化辅导，不会向第三方出售；\n3. AI 辅导内容由人工智能生成，仅供参考，请以教材和老师讲解为准；\n4. 请勿上传违法违规、侵犯他人权益的内容；\n5. 违反本协议可能导致账号被限制使用。',
       showCancel: false,
       confirmText: '知道了'
     });
@@ -93,27 +87,5 @@ Page({
         self.setData({ loading: false });
       }
     });
-  },
-
-  doLogin() {
-    if (!this._checkAgree()) return;
-    const u = this.data.username.trim();
-    const p = this.data.password.trim();
-    if (!u || !p) {
-      wx.showToast({ title: '请输入账号和密码', icon: 'none' });
-      return;
-    }
-    this.setData({ loading2: true });
-    request('/auth/login', { method: 'POST', data: { username: u, password: p } })
-      .then((data) => {
-        // 后端返回 { token, user }
-        app.saveAuth(data.token, data.user || data);
-        wx.showToast({ title: '登录成功', icon: 'success' });
-        setTimeout(() => {
-          wx.reLaunch({ url: '/pages/home/home' });
-        }, 600);
-      })
-      .catch(() => {})
-      .then(() => this.setData({ loading2: false }));
   }
 });
