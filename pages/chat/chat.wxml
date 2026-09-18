@@ -46,9 +46,8 @@
       <button class="send-btn" bindtap="sendText">发送</button>
     </block>
     <block wx:else>
-      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">接通 AI 导师</view>
-      <!-- 第一轮开场白：轻触页面播放语音 / AI 正在说话时暂不显示按住说话 -->
-      <view wx:elif="{{greetingWaiting}}" class="ptt-btn waiting" bindtap="onPageTouch">轻触屏幕播放语音</view>
+      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">开始语音聊天</view>
+      <!-- 第一轮开场白：AI 说话中暂不显示按住说话，等说完再给 PTT -->
       <view wx:elif="{{aiSpeaking && !firstReplyDone}}" class="ptt-btn waiting">AI 正在说话…</view>
       <!-- 第一轮结束后 PTT 常显：AI 说话时按住=打断并收音 -->
       <view wx:else class="ptt-btn {{micPaused ? 'paused' : ''}}"

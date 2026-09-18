@@ -34,8 +34,7 @@ Page({
 
     // 语音通话状态（按住说话 PTT）
     callOn: false,
-    // 第一轮开场白：greetingWaiting=等待轻触播放语音；firstReplyDone=第一轮已说完（此后 PTT 常显可打断）
-    greetingWaiting: false,
+    // 第一轮开场白：firstReplyDone=第一轮已说完（此后 PTT 常显可打断）
     firstReplyDone: false,
     connected: false,       // 会话已接通
     callListening: false,   // 麦克风收音中
@@ -64,7 +63,7 @@ Page({
     // 恢复本地保存的聊天记录（重新进入页面不丢）
     this._restoreHistory();
 
-    // 从题库"问这道题"进入：与错题辅导一致——带上题干，自动连接、AI 文字先出（语音等轻触播放）
+    // 从题库"问这道题"进入：与错题辅导一致——带上题干，等待用户点【开始语音聊天】
     const seed = wx.getStorageSync('chat_seed');
     if (seed && seed.stem) {
       wx.removeStorageSync('chat_seed');
@@ -78,35 +77,48 @@ Page({
           // 题库题没有错因定位，reason 留空（开场白不会提"错因"）
         },
         topic: (seed.subject || '数学') + (seed.tag ? ' · ' + seed.tag : ''),
-        headStatusText: '正在连接 AI 导师…'
+        headStatusText: ''
       });
-      this._autoStartVoice();
       return;
     }
 
     if (opts.mistake_id) {
       this.setData({ mistakeId: opts.mistake_id });
-      // 先加载题目，再自动连接——确保 AI 建会话时系统指令里已带题干（避免 AI 不知道题目）
+      // 先加载题目，用户点击【开始语音聊天】时系统指令里已带题干（避免 AI 不知道题目）
       request('/mistakes/' + opts.mistake_id).then((m) => {
         this.setData({
           mistake: m,
           topic: (m.subject || '') + (m.tag ? ' · ' + m.tag : '')
         });
-        this._autoStartVoice();
-      }).catch(() => { this._autoStartVoice(); });
-    } else {
-      // 自由提问：自动连接
-      this._autoStartVoice();
+      }).catch(() => {});
     }
+    // 自由提问：等待用户点【开始语音聊天】
   },
 
-  // 进入页面自动连接并让 AI 导师先开口
-  _autoStartVoice() {
+  // 点击【开始语音聊天】：首次用户手势 → 手势内一次性完成音频解锁 + 连接
+  // 架构要求：AudioContext 激活、播放队列、录音、WS 连接全部在这一次手势内就绪，
+  // 之后 AI 音频自动入队播放，禁止要求用户每次点击播放
+  startCall() {
+    if (this.data.callOn) return;
+    // ① 手势栈内创建并激活 AudioContext（iOS 硬性要求：首次解锁必须发生在用户手势中）
+    this._ensureAudioCtx();
+    const ac = this._audioCtx;
+    if (ac && (ac.state === 'suspended' || ac.state === 'interrupted' || ac.state === 'default') && ac.resume) {
+      try { ac.resume(); } catch (e) {}
+    }
+    console.log('[AUDIO] AudioContext unlocked, state=' + (ac ? ac.state : 'null'));
+    // ② 服务端余额校验 → ③ 建立播放器/录音/WS 连接（全部复用刚解锁的 AudioContext）
+    this.setData({ headStatusText: '正在连接 AI 导师…' });
+    this._connectVoice().catch(() => {});
+  },
+
+  // 接通流程：余额校验 → 连接（连接成功后 AI 开场白文字+语音同步自动播放）
+  _connectVoice() {
     const self = this;
-    // 服务端余额校验（/voice/start 校验语音包余额与有效期，防止余额不足仍通话）
-    request('/voice/start', { method: 'POST' }).then((d) => {
+    return request('/voice/start', { method: 'POST' }).then((d) => {
       d = d || {};
       if (!d.allow) {
+        self.setData({ headStatusText: '' });
         wx.showModal({
           title: '需要开通语音包',
           content: '打电话辅导按分钟计费，请先开通语音包（单次/月付/年付三档）。',
@@ -123,9 +135,8 @@ Page({
         });
         return;
       }
-      // 立即自动连接，连接成功 AI 导师会先说话（用户随时开口即可对话）
-      if (self.data.inputMode !== 'voice') return;
-      self._ensureVoice().catch(() => {});
+      if (self.data.inputMode !== 'voice') { self._fallbackTextAsk(); return; }
+      return self._ensureVoice();
     }).catch(() => {
       // 余额不足或网络异常：静默回文字输入，有题则自动转文字讲解
       self.setData({ inputMode: 'text' });
@@ -142,12 +153,10 @@ Page({
 
   goVip() { wx.switchTab({ url: '/pages/me/me' }); },
 
-  // 触摸页面：首次触摸解除静音缓冲（播放 AI 已说的话）+ 同步解锁 AudioContext
-  // iOS 微信 resume().then 回调不可靠 → 手势栈内同步 resume 后立即同步 retry
+  // 触摸页面：兜底解锁 AudioContext（iOS 自动播放限制），不影响已开始的播放
+  // 主解锁时机在【开始语音聊天】按钮点击（用户手势）内完成
   onPageTouch() {
     this._ensureAudioCtx();
-    // 首次轻触：AI 第一轮语音从缓冲开始播放（此后问答正常流式出声）
-    if (this.voice && this.voice._muteUntilTouch !== false) this.voice.setMuteUntilTouch(false);
     const ac = this._audioCtx;
     const locked = ac && (ac.state === 'suspended' || ac.state === 'interrupted' || ac.state === 'default');
     if (locked && ac.resume) {
@@ -331,14 +340,13 @@ Page({
     if (!d.callOn || !d.connected) {
       // 未通话：头部显示输入方式提示
       const hint = d.inputMode === 'voice'
-        ? (d.callStatusText || '点击下方按钮接通 AI 导师')
+        ? (d.callStatusText || '点击下方按钮开始语音聊天')
         : '支持文字与语音提问';
       this.setData({ headStatusText: hint });
       return;
     }
     let text;
-    if (d.greetingWaiting) text = '轻触屏幕播放语音';
-    else if (d.recognizing || d.userSpeaking) text = '正在听你说…';
+    if (d.recognizing || d.userSpeaking) text = '正在听你说…';
     else if (d.aiSpeaking) text = 'AI 正在回复…（按住可打断）';
     else text = '按住下方按钮说话';
     this.setData({ callStatusText: text, headStatusText: text });
@@ -352,7 +360,7 @@ Page({
     this._ensureAudioCtx();
     let resolved = false;
     const p = new Promise((resolve, reject) => {
-      self.setData({ callOn: true, callStatusText: '正在连接…', greetingWaiting: true });
+      self.setData({ callOn: true, callStatusText: '正在连接…' });
       self.voice = new VoiceCall({
         onStatus(text, live) {
           if (live) {
@@ -417,8 +425,8 @@ Page({
           self._bumpScroll();
         },
         onAiSpeaking(on) {
-          // 播放开始 → 取消"轻触播放"等待；第一轮播放结束 → 解锁 PTT 按住说话
-          if (on) self.setData({ aiSpeaking: true, greetingWaiting: false });
+          // 播放开始/结束：第一轮播放结束 → 解锁 PTT 按住说话（此后 PTT 常显可打断）
+          if (on) self.setData({ aiSpeaking: true });
           else self.setData({ aiSpeaking: false, firstReplyDone: true });
           self._refreshStatus();
         },
@@ -440,7 +448,7 @@ Page({
       prep.then(() => {
         // 题干就绪后重新生成开场白（结合刚拿到的题目/错因）
         // 自动连接：AI 文字先显示，语音先缓冲；用户轻触屏幕后从头播放（iOS 手势解锁）
-        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx, { muteUntilTouch: true });
+        self.voice.start(self.buildInstructions(), self._buildGreeting(), self._audioCtx);
       });
     });
     this._voiceConnecting = p;
@@ -486,13 +494,6 @@ Page({
     else this.clearTextHistory();
   },
 
-  // 开始通话（挂断后重新进入）
-  startCall() {
-    if (this.data.callOn) return;
-    this.setData({ headStatusText: '正在连接 AI 导师…' });
-    this._ensureVoice().catch(() => {});
-  },
-
   // 按住 MIC 按钮 = 插话：AI 正在说话时按住，立即打断 AI 并收音
   onMicTouchStart() {
     wx.vibrateShort({ type: 'medium', fail: function () {} });
@@ -530,7 +531,6 @@ Page({
     this._saveHistory();
     this.setData({
       callOn: false,
-      greetingWaiting: false,
       firstReplyDone: false,
       connected: false,
       callListening: false,

@@ -336,6 +336,18 @@ class VoiceCall {
     this._framesReceived = false;
     this._userTextBuf = '';
     this._vadDoneTimer = null;
+    // VoiceSession 状态机：IDLE→INITIALIZING→AUDIO_UNLOCKED→CONNECTING→LISTENING→
+    // USER_SPEAKING→AI_SPEAKING→INTERRUPTED→LISTENING→ENDED（所有转换可追踪日志）
+    this._state = 'IDLE';
+  }
+
+  setState(s) {
+    if (this._state === s) return;
+    const prev = this._state;
+    this._state = s;
+    const ts = new Date().toISOString().slice(11, 23);
+    console.log('[VoiceCall][' + ts + '][' + (this.callId || '-') + '] state: ' + prev + ' -> ' + s);
+    if (this.cb.onState) this.cb.onState(s, prev);
   }
 
   setCb(key, fn) { this.cb[key] = fn; }
@@ -361,10 +373,10 @@ class VoiceCall {
     this._reconnects = 0;
     this._closedByUser = false;
     this._greeted = false;
-    // 静音缓冲模式：进入页面自动连接后只显示文字，AI 语音先缓冲不播；
-    // 用户首次轻触屏幕（setMuteUntilTouch(false)）后从头播放；之后问答正常流式出声
-    this._muteUntilTouch = !!(opts && opts.muteUntilTouch);
+    // 首次手势解锁架构：用户在【开始语音聊天】手势内已创建/激活 AudioContext，
+    // 连接后 AI 音频自动入队播放，不再要求用户每次点击播放
     this.opening = true;
+    this.setState('INITIALIZING');
     this._emit('onStatus', '正在连接 AI 导师…', false);
 
     this.fetchConfig().then(function (cfg) {
@@ -396,31 +408,35 @@ class VoiceCall {
         self._emit('onAiSpeaking', on);
         if (on) {
           // AI 开始播报 → 暂停麦克风，彻底避免回声
+          self.setState('AI_SPEAKING');
           self._pauseMicForAi();
         } else {
           // AI 播报结束 → 恢复麦克风（若 response.done 已到）
+          self.setState('LISTENING');
           self._onAiPlayStopped();
         }
       }
     });
-    if (this._muteUntilTouch) this.player.setMuted(true);
-
+    this.setState('CONNECTING');
+    // 播放器创建即完成 AudioBufferQueue 初始化（不重复创建 AudioContext）
+    console.log('[PLAYER][' + new Date().toISOString().slice(11, 23) + '] Buffer queue initialized');
     const tk = wx.getStorageSync('token') || '';
     const sep = proxyUrl.indexOf('?') >= 0 ? '&' : '?';
     const wsUrl = proxyUrl + sep + 'token=' + encodeURIComponent(tk) + '&call_id=' + encodeURIComponent(this.callId);
-    console.log('[VoiceCall] WebSocket URL:', wsUrl);
+    console.log('[DOUBAO][' + new Date().toISOString().slice(11, 23) + '] WebSocket URL:', wsUrl);
     // 显式传 success/fail，避免基础库将 connectSocket 当 Promise 处理（失败产生未处理 rejection）
     this.socket = wx.connectSocket({
       url: wsUrl,
       success: function () {},
       fail: function (e) {
-        console.warn('[VoiceCall] connectSocket fail:', e && e.errMsg);
+        console.warn('[DOUBAO] connectSocket fail:', e && e.errMsg);
       }
     });
 
     this.socket.onOpen(function () {
-      console.log('[VoiceCall] WebSocket 已连接');
+      console.log('[DOUBAO][' + new Date().toISOString().slice(11, 23) + '] WebSocket connected');
       self.opening = false;
+      self.setState('AUDIO_UNLOCKED');
       // 创建会话（Seeduplex 服务端 VAD；VAD 结束判定由客户端 3s 静默兜底保证）
       self._send({
         type: 'session.create',
@@ -494,7 +510,8 @@ class VoiceCall {
       clearTimeout(this._sessionProbe);
       this.connected = true;
       if (!this._connectedAt) this._connectedAt = Date.now(); // 首次接通计时
-      console.log('[VoiceCall] session.created 收到，完整消息:', JSON.stringify(msg).slice(0, 500));
+      console.log('[DOUBAO][' + new Date().toISOString().slice(11, 23) + '] session.created, session=' + (msg.session && msg.session.id));
+      this.setState('LISTENING');
       this._emit('onStatus', '已接通，随时说话', true);
       this.aiStream = '';
       // 首次接通发送招呼语（重连不重复打招呼）
@@ -756,19 +773,13 @@ class VoiceCall {
     console.log('[VoiceCall] AI 播报中，麦克风静音（防回声）；按住 MIC 可插话');
   }
 
-  // 解除/启用静音缓冲（进入页面第一轮 AI 语音等待用户轻触后播放）
-  setMuteUntilTouch(v) {
-    this._muteUntilTouch = !!v;
-    if (this.player) this.player.setMuted(this._muteUntilTouch);
-  }
-
   // 按住 MIC（PTT）：清空服务端缓冲（丢弃静音帧）、停止 AI 播放、启动录音器采集上传
   interruptMic() {
     const self = this;
-    // 用户主动插话 → 后续 AI 回复恢复正常出声
-    this._dropAudio = false;
+    // Barge-in：AI 播放中按住 → 立即打断（INTERRUPTED），否则进入用户说话状态
+    this.setState(this._state === 'AI_SPEAKING' ? 'INTERRUPTED' : 'USER_SPEAKING');
+    console.log('[INTERRUPT][' + new Date().toISOString().slice(11, 23) + '] AI interrupted / mic on');
     // 关键：按住瞬间处于用户手势调用栈（touchstart），同步解锁 AudioContext
-    // 否则 AI 回复音频到达时 resume 被 iOS 拒绝 → 无声；这是"第二次按下才有声"的根因
     if (this.player) { try { this.player.unlock(); } catch (e) {} }
     if (this.connected && this._ws && this._ws.readyState === 1) {
       this._send({ type: 'input_audio_buffer.clear' });
