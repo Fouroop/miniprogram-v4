@@ -3,16 +3,26 @@
   <view class="page-sub">我的学习数据</view>
 
   <view class="card profile">
-    <image wx:if="{{user.avatar}}" class="avatar avatar-img" src="{{user.avatar}}" mode="aspectFill" />
-    <view wx:else class="avatar">{{user.nickname ? user.nickname[0] : '学'}}</view>
-    <view class="profile-body">
-      <view class="profile-name">{{user.nickname || '同学'}}</view>
-      <view class="profile-meta">
-        {{user.grade || '未设置年级'}} ·
-        <text class="{{user.is_vip ? 'vip-on' : 'vip-off'}}">{{user.is_vip ? 'VIP 会员' : '普通用户'}}</text>
+    <block wx:if="{{user}}">
+      <image wx:if="{{user.avatar}}" class="avatar avatar-img" src="{{user.avatar}}" mode="aspectFill" />
+      <view wx:else class="avatar">{{user.nickname ? user.nickname[0] : '学'}}</view>
+      <view class="profile-body">
+        <view class="profile-name">{{user.nickname || '同学'}}</view>
+        <view class="profile-meta">
+          {{user.grade || '未设置年级'}} ·
+          <text class="{{user.is_vip ? 'vip-on' : 'vip-off'}}">{{user.is_vip ? 'VIP 会员' : '普通用户'}}</text>
+        </view>
       </view>
-    </view>
-    <view class="profile-edit" bindtap="openEdit">编辑</view>
+      <view class="profile-edit" bindtap="openEdit">编辑</view>
+    </block>
+    <block wx:else>
+      <view class="avatar">未</view>
+      <view class="profile-body">
+        <view class="profile-name">未登录</view>
+        <view class="profile-meta">登录后同步你的错题本和学习数据</view>
+      </view>
+      <view class="profile-edit" bindtap="goLogin">登录</view>
+    </block>
   </view>
 
   <!-- 语音包：实时余量 -->
@@ -62,7 +72,8 @@
     </view>
   </view>
 
-  <button class="btn btn-ghost btn-block" style="margin-top:30rpx" bindtap="logout">退出登录</button>
+  <button wx:if="{{user}}" class="btn btn-ghost btn-block" style="margin-top:30rpx" bindtap="logout">退出登录</button>
+  <button wx:else class="btn btn-primary btn-block" style="margin-top:30rpx" bindtap="goLogin">登录 / 注册</button>
   <view class="bottom-space"></view>
 
   <!-- 连接 AI 弹层 -->
