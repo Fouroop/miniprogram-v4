@@ -140,34 +140,33 @@
   display: flex;
   align-items: center;
   gap: 16rpx;
-  padding: 20rpx 24rpx;
-  background: #FFFDF8;
-  border: 1.5rpx solid #E2D8C2;
-  border-top: none;
-  border-radius: 0 0 28rpx 28rpx;
+  padding: 16rpx 24rpx;
+  background: #F5F5F5;
+  border: none;
+  border-radius: 0;
   flex-shrink: 0;
 }
 .input-mode-btn {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 18rpx;
-  background: #F6F0E4;
-  border: 1.5rpx solid #E2D8C2;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 50%;
+  background: transparent;
+  border: 2.5rpx solid #333;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.input-mode-btn.on { background: #E3EDF7; border-color: #BBD2E8; }
-.im-icon { width: 44rpx; height: 44rpx; }
+.input-mode-btn.on { background: transparent; }
+.im-icon { width: 40rpx; height: 40rpx; }
 .input-box {
   flex: 1;
   min-width: 0;
-  height: 92rpx;
-  padding: 0 32rpx;
-  border: 2rpx solid #E5E5E5;
-  border-radius: 46rpx;
-  background: #F7F7F7;
+  height: 88rpx;
+  padding: 0 36rpx;
+  border: none;
+  border-radius: 999rpx;
+  background: #fff;
   font-size: 32rpx;
   box-sizing: border-box;
   color: #2B2A26;
@@ -193,28 +192,24 @@
 .send-btn[disabled] { background: #9AD8B3; }
 .ptt-btn {
   flex: 1;
-  height: 96rpx;
+  height: 88rpx;
   border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
-  color: #fff;
-  letter-spacing: 2rpx;
-  background: #4C8A5C;
-  box-shadow: 0 6rpx 24rpx rgba(76, 138, 92, 0.35);
-}
-.ptt-btn.paused {
-  background: #D64541;
-  box-shadow: 0 6rpx 24rpx rgba(214, 69, 65, 0.4);
-  transform: scale(1.02);
-}
-.ptt-btn.start { background: #3B6EA5; box-shadow: 0 6rpx 24rpx rgba(59, 110, 165, 0.35); }
-.ptt-btn.live { background: #4C8A5C; box-shadow: 0 6rpx 24rpx rgba(76, 138, 92, 0.35); }
-.ptt-btn.waiting {
-  background: #A8B8C8;
+  color: #333;
+  letter-spacing: 4rpx;
+  background: #fff;
   box-shadow: none;
+}
+.ptt-btn.paused { background: #FDE4E5; color: #C0392B; }
+.ptt-btn.start { background: #fff; }
+.ptt-btn.live { background: #fff; }
+.ptt-btn.waiting {
+  background: #fff;
+  color: #999;
   font-weight: 600;
   letter-spacing: 1rpx;
   animation: pttBlink 1.6s ease-in-out infinite;
