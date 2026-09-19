@@ -1,5 +1,6 @@
 // pages/detail/detail.js —— 题库 / 错题本通用详情页（长题干滚动显示）
 const { request } = require('../../utils/request.js');
+const app = getApp();
 
 Page({
   data: {
@@ -43,8 +44,12 @@ Page({
   },
 
   /* ---------- 加入错题本（题库） ---------- */
-  addMistake() {
+  async addMistake() {
     if (this.data.adding) return;
+    if (!app.isLogin()) {
+      const ok = await app.ensureLogin('登录后可加入错题本');
+      if (!ok) return;
+    }
     const q = this.data.detail;
     if (!q) return;
     this.setData({ adding: true });
@@ -69,9 +74,13 @@ Page({
   },
 
   /* ---------- 问这道题 / AI 辅导 ---------- */
-  askQuestion() {
+  async askQuestion() {
     const q = this.data.detail;
     if (!q) return;
+    if (!app.isLogin()) {
+      const ok = await app.ensureLogin('登录后使用 AI 辅导');
+      if (!ok) return;
+    }
     wx.setStorageSync('chat_seed', {
       stem: q.stem,
       answer: q.answer,
@@ -82,16 +91,24 @@ Page({
     wx.navigateTo({ url: '/pages/chat/chat' });
   },
 
-  askMistake() {
+  async askMistake() {
     const m = this.data.detail;
     if (!m) return;
+    if (!app.isLogin()) {
+      const ok = await app.ensureLogin('登录后使用 AI 辅导');
+      if (!ok) return;
+    }
     wx.navigateTo({ url: '/pages/chat/chat?mistake_id=' + m.id });
   },
 
   /* ---------- 掌握状态切换 ---------- */
-  toggleMastery() {
+  async toggleMastery() {
     const m = this.data.detail;
     if (!m) return;
+    if (!app.isLogin()) {
+      const ok = await app.ensureLogin('登录后标记掌握状态');
+      if (!ok) return;
+    }
     const next = m.status === '已掌握' ? '未掌握' : '已掌握';
     const mastery = next === '已掌握' ? 'mastered' : 'weak';
     wx.showLoading({ title: '更新中…' });

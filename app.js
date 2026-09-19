@@ -32,5 +32,34 @@ App({
   isVip() {
     const u = this.globalData.user;
     return !!(u && u.is_vip);
+  },
+
+  isLogin() {
+    return !!this.globalData.token && !!this.globalData.user;
+  },
+
+  /**
+   * 按需登录（微信规范：未登录可浏览，点需要登录的功能时才弹登录，带"取消"返回）
+   * @param {string} tip 如"登录后使用 AI 辅导"
+   * @returns {Promise<boolean>} 已登录/用户确认去登录返回 true（此时已跳登录页）；用户取消返回 false
+   */
+  ensureLogin(tip) {
+    if (this.isLogin()) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '提示',
+        content: tip || '登录后即可使用此功能',
+        confirmText: '去登录',
+        cancelText: '取消',
+        success(r) {
+          if (r.confirm) {
+            wx.navigateTo({ url: '/pages/login/login' });
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        }
+      });
+    });
   }
 });

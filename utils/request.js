@@ -9,15 +9,14 @@ function authHeader(extra) {
   return h;
 }
 
-function goLogin() {
-  wx.reLaunch({ url: '/pages/login/login' });
-}
-
 /**
  * 统一请求
  * @param {string} path 如 /auth/login
  * @param {object} opts { method, data }
  * @returns Promise<data> 后端统一返回 { ok, data } 或 { ok, error }
+ *
+ * 401 时不强制跳转登录页（微信规范：不得一进小程序就要求登录），
+ * 只 reject 一个 unauthorized 错误，由页面自行决定是否弹"登录后使用"。
  */
 function request(path, opts) {
   opts = opts || {};
@@ -30,10 +29,12 @@ function request(path, opts) {
       success(res) {
         const body = res.data || {};
         if (res.statusCode === 401) {
-          wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
           wx.removeStorageSync('token');
-          goLogin();
-          reject(new Error('unauthorized'));
+          const app = getApp();
+          if (app) app.globalData.user = null;
+          const err = new Error('unauthorized');
+          err.code = 401;
+          reject(err);
           return;
         }
         if (body && body.ok === false) {
@@ -44,7 +45,7 @@ function request(path, opts) {
         resolve(body.data !== undefined ? body.data : body);
       },
       fail(err) {
-        wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
+        if (!opts.silent) wx.showToast({ title: '网络异常，请稍后重试', icon: 'none' });
         reject(err);
       }
     });
@@ -70,8 +71,11 @@ function uploadFile(filePath, path, formData) {
         try { body = JSON.parse(res.data); } catch (e) { body = { ok: false, error: '返回格式错误' }; }
         if (res.statusCode === 401) {
           wx.removeStorageSync('token');
-          goLogin();
-          reject(new Error('unauthorized'));
+          const app = getApp();
+          if (app) app.globalData.user = null;
+          const err = new Error('unauthorized');
+          err.code = 401;
+          reject(err);
           return;
         }
         if (body.ok === false) {
