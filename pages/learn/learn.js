@@ -1,5 +1,6 @@
 // pages/learn/learn.js —— 学习页（题库 + 错题本合并，内部筛选）
 const { request } = require('../../utils/request.js');
+const app = getApp();
 
 const SUBJECTS = ['全部', '数学', '物理', '化学', '语文', '英语'];
 const GRADE_TABS = [

@@ -41,6 +41,9 @@ Page({
   },
 
   loadAll() {
+    // 未登录不发请求（微信规范：先浏览，避免 401）
+    if (!app.isLogin()) { return Promise.resolve(); }
+
     this.setData({ loading: true });
     Promise.all([this.loadTree(), this.loadSubjects()])
       .finally(() => this.setData({ loading: false }));

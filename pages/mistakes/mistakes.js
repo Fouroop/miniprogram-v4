@@ -1,5 +1,6 @@
 // pages/mistakes/mistakes.js
 const { request } = require('../../utils/request.js');
+const app = getApp();
 
 const SUBJECTS = ['全部', '数学', '物理', '化学', '语文', '英语'];
 const STATUSES = ['全部', '未掌握', '复习中', '已掌握'];
@@ -41,6 +42,9 @@ Page({
   },
 
   load() {
+    // 未登录不发请求（微信规范：先浏览，避免 401）
+    if (!app.isLogin()) { return Promise.resolve(); }
+
     const self = this;
     this.setData({ loading: true });
     const q = [];

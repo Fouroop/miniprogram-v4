@@ -1,5 +1,6 @@
 // pages/questions/questions.js —— 题库（全年级 · 几何/函数专题）
 const { request } = require('../../utils/request.js');
+const app = getApp();
 
 Page({
   data: {
