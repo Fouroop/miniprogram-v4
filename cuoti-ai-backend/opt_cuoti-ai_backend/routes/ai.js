@@ -29,17 +29,18 @@ async function callLlm(llm, messages) {
 }
 
 // 构造 system prompt（思维引导人设 + 题干）
-function buildSystem(mistake) {
+function buildSystem(mistake, seed) {
   let sys = config.socraticSystem;
-  if (mistake) {
-    sys += `\n\n【当前讨论的错题】\n科目：${mistake.subject || ''}\n题干：${mistake.stem || ''}\n正确答案：${mistake.answer || ''}\n学生错因标签：${mistake.reason || ''}\n（你知道答案，但不要直接说出来，用提问引导学生自己推导出答案。）`;
+  const m = mistake || seed;
+  if (m && (m.stem || m.answer)) {
+    sys += `\n\n【当前讨论的题目】\n科目：${m.subject || ''}\n题干：${m.stem || ''}\n正确答案：${m.answer || ''}\n学生错因标签：${m.reason || ''}\n（你知道答案，但不要直接说出来，用提问引导学生自己推导出答案。）`;
   }
   return sys;
 }
 
 // AI 对话
 router.post('/chat', async (req, res) => {
-  const { conversation_id, mistake_id, content, mode = 'text' } = req.body;
+  const { conversation_id, mistake_id, content, mode = 'text', seed, history } = req.body;
   if (!content || !content.trim()) return res.json({ ok: false, error: '消息内容为空' });
   const uid = req.user.id;
 
@@ -78,16 +79,26 @@ router.post('/chat', async (req, res) => {
     reply = fallbackReply(content);
   } else {
     try {
-      // 带上最近 10 条历史
-      const [hist] = await pool.query(
-        "SELECT role, content FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT 10",
-        [convId]
-      );
-      const msgs = [{ role: 'system', content: buildSystem(mistake) }];
-      hist.reverse().forEach(h => {
-        if (h.role === 'ai') msgs.push({ role: 'assistant', content: h.content });
-        else if (h.role === 'user') msgs.push({ role: 'user', content: h.content });
-      });
+      // 组对话历史：优先用前端传来的（含语音聊过的内容），否则查库
+      let chatMsgs = [];
+      if (Array.isArray(history) && history.length) {
+        history.forEach(h => {
+          const c = (h && h.content) || '';
+          if (!c) return;
+          chatMsgs.push({ role: h.role === 'user' ? 'user' : 'assistant', content: c });
+        });
+      }
+      if (!chatMsgs.length) {
+        const [hist] = await pool.query(
+          "SELECT role, content FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT 10",
+          [convId]
+        );
+        hist.reverse().forEach(h => {
+          if (h.role === 'ai') chatMsgs.push({ role: 'assistant', content: h.content });
+          else if (h.role === 'user') chatMsgs.push({ role: 'user', content: h.content });
+        });
+      }
+      const msgs = [{ role: 'system', content: buildSystem(mistake, seed) }].concat(chatMsgs);
       reply = await callLlm(llm, msgs);
     } catch (e) {
       reply = fallbackReply(content) + '（提示：大模型调用失败，已切换到兜底回复）';

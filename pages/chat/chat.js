@@ -323,13 +323,30 @@ Page({
     this._saveHistory();
     this._bumpScroll();
 
+    // 题干 seed（题库/错题辅导，让 AI 知道在问哪道题）
+    const m = this.data.mistake || {};
+    const seed = m.stem ? {
+      stem: m.stem,
+      answer: m.answer || '',
+      subject: m.subject || '',
+      tag: m.tag || '',
+      analysis: m.analysis || ''
+    } : null;
+    // 对话历史（含语音聊过的内容，切文字时带上，AI 保持上下文）
+    const history = (this.data.messages || []).slice(-12).map((x) => ({
+      role: x.role === 'user' ? 'user' : 'assistant',
+      content: x.text || ''
+    })).filter((x) => x.content);
+
     request('/ai/chat', {
       method: 'POST',
       data: {
         content: text,
         mode: 'text',
         mistake_id: this.data.mistakeId,
-        conversation_id: this.data.conversationId
+        conversation_id: this.data.conversationId,
+        seed: seed,
+        history: history
       }
     }).then((data) => {
       data = data || {};

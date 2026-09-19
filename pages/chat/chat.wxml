@@ -47,7 +47,7 @@
       <button class="send-btn" bindtap="sendText">发送</button>
     </block>
     <block wx:else>
-      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">按住 说话</view>
+      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">打电话给老师</view>
       <!-- 全双工免按：AI 说话中显示状态（可直接打断）；平时直接说话即可 -->
       <view wx:elif="{{aiSpeaking}}" class="ptt-btn waiting">AI 正在说话…（可直接打断）</view>
       <view wx:else class="ptt-btn live">正在聆听 · 直接说</view>
