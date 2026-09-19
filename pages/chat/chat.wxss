@@ -81,6 +81,9 @@
   padding-top: 16rpx;
   border-top: 2rpx dashed #CFC2A6;
   margin-top: 12rpx;
+  /* scroll-view 需显式高度才可滚动：长题干固定高度滚动，不把聊天区挤没 */
+  height: 200rpx;
+  box-sizing: border-box;
 }
 
 .chat-body {
@@ -278,3 +281,5 @@
 .mt-input { flex: 1; font-size: 28rpx; }
 .mastery-actions { display: flex; gap: 20rpx; }
 .mastery-actions .btn { flex: 1; }
+
+.ptt-ic { width: 38rpx; height: 38rpx; margin-right: 12rpx; flex-shrink: 0; }

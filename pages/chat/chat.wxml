@@ -14,9 +14,9 @@
   </view>
 
   <!-- 题干可折叠 -->
-  <view class="stem-strip" wx:if="{{mistake}}" bindtap="toggleStem">
-    <view class="stem-head">题干原文 <text class="stem-toggle">{{stemOpen ? '[ 收起 ]' : '[ 展开 ]'}}</text></view>
-    <view class="stem-body" wx:if="{{stemOpen}}">{{mistake.stem}}</view>
+  <view class="stem-strip" wx:if="{{mistake}}">
+    <view class="stem-head" bindtap="toggleStem">题干原文 <text class="stem-toggle">{{stemOpen ? '[ 收起 ]' : '[ 展开 ]'}}</text></view>
+    <scroll-view class="stem-body" scroll-y wx:if="{{stemOpen}}">{{mistake.stem}}</scroll-view>
   </view>
 
   <!-- 聊天记录（文字 + 语音统一） -->
@@ -47,10 +47,10 @@
       <button class="send-btn" bindtap="sendText">发送</button>
     </block>
     <block wx:else>
-      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall">开始语音聊天</view>
+      <view wx:if="{{!callOn}}" class="ptt-btn start" bindtap="startCall"><image class="ptt-ic" src="{{icons.micWhite}}" />开始语音聊天</view>
       <!-- 全双工免按：AI 说话中显示状态（可直接打断）；平时直接说话即可 -->
-      <view wx:elif="{{aiSpeaking}}" class="ptt-btn waiting">AI 正在说话…（可直接打断）</view>
-      <view wx:else class="ptt-btn live">通话中 · 直接说话</view>
+      <view wx:elif="{{aiSpeaking}}" class="ptt-btn waiting"><image class="ptt-ic" src="{{icons.micWhite}}" />AI 正在说话…（可直接打断）</view>
+      <view wx:else class="ptt-btn live"><image class="ptt-ic" src="{{icons.micWhite}}" />通话中 · 直接说话</view>
     </block>
   </view>
 

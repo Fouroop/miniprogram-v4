@@ -68,9 +68,7 @@ Page({
 
   openDetail(e) {
     const id = e.currentTarget.dataset.id;
-    const q = this.data.list.find((x) => x.id === id);
-    if (!q) return;
-    this.setData({ showDetail: true, curQ: q });
+    wx.navigateTo({ url: '/pages/detail/detail?type=question&id=' + id });
   },
 
   closeDetail() { this.setData({ showDetail: false }); },

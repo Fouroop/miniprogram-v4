@@ -56,7 +56,7 @@ Page({
 
   openDetail(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/mistake-detail/mistake-detail?id=' + id });
+    wx.navigateTo({ url: '/pages/detail/detail?type=mistake&id=' + id });
   },
 
   /* ---------- 编辑 / 删除 ---------- */

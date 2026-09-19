@@ -1,0 +1,123 @@
+<view class="page">
+  <!-- 加载 / 空态 -->
+  <view class="loading" wx:if="{{!detail && !error}}">加载中…</view>
+  <view class="empty" wx:if="{{error}}">{{error}}</view>
+
+  <block wx:if="{{detail}}">
+    <!-- 标签 -->
+    <view class="tags">
+      <text class="tag tag-subject">{{detail.subject || '数学'}}</text>
+      <text wx:if="{{detail.grade}}" class="tag tag-grade">{{detail.grade}}</text>
+      <text wx:if="{{detail.tag}}" class="tag tag-topic">{{detail.tag}}</text>
+      <text wx:if="{{detail.difficulty}}" class="tag tag-diff">{{detail.difficulty}}</text>
+      <text wx:if="{{type === 'mistake'}}" class="tag {{detail.status === '已掌握' ? 'tag-ok' : (detail.status === '复习中' ? 'tag-review' : 'tag-weak')}}">{{detail.status || '未掌握'}}</text>
+    </view>
+
+    <image wx:if="{{detail.image_url}}" class="detail-img" src="{{detail.image_url}}" mode="widthFix" />
+
+    <!-- 内容滚动区：长题干滚动显示 -->
+    <scroll-view class="body" scroll-y>
+      <view class="sec-label">题目</view>
+      <view class="sec-text">{{detail.stem}}</view>
+      <view class="sec-label">答案</view>
+      <view class="sec-text sec-answer">{{detail.answer || '（暂无）'}}</view>
+      <block wx:if="{{type === 'mistake'}}">
+        <view class="sec-label">错因</view>
+        <view class="sec-text sec-reason">{{detail.reason || '（未记录错因）'}}</view>
+      </block>
+      <block wx:else>
+        <view class="sec-label">解析</view>
+        <view class="sec-text sec-analysis">{{detail.analysis || '（暂无解析）'}}</view>
+      </block>
+    </scroll-view>
+
+    <!-- 底部操作栏 -->
+    <view class="actions">
+      <view class="d-btn ghost" wx:if="{{type === 'question'}}" bindtap="askQuestion">问这道题</view>
+      <view class="d-btn ghost" wx:else bindtap="askMistake">AI 辅导</view>
+      <view class="d-btn {{detail.status === '已掌握' ? 'revert' : 'primary'}}" wx:if="{{type === 'mistake'}}" bindtap="toggleMastery">{{detail.status === '已掌握' ? '改为未掌握' : '标记已掌握'}}</view>
+      <view class="d-btn primary" wx:if="{{type === 'question'}}" bindtap="addMistake">{{adding ? '加入中…' : '加入错题本'}}</view>
+      <view class="d-btn more" bindtap="onMenu">···</view>
+    </view>
+  </block>
+
+  <!-- 编辑弹层（题库） -->
+  <view class="mask" wx:if="{{qEditorVisible}}" bindtap="closeQEditor"></view>
+  <view class="editor-panel {{qEditorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑题目</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{qForm.stem}}" data-f="stem" bindinput="onQInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案</view>
+        <textarea class="ep-input ep-area" value="{{qForm.answer}}" data-f="answer" bindinput="onQInput" placeholder="正确答案" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">解析</view>
+        <textarea class="ep-input ep-area" value="{{qForm.analysis}}" data-f="analysis" bindinput="onQInput" placeholder="解题思路 / 解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{qSubjects}}" value="{{qSubjectIndex}}" bindchange="onQSubject">
+          <view class="ep-input ep-picker">{{qForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">年级</view>
+        <picker range="{{qGrades}}" value="{{qGradeIndex}}" bindchange="onQGrade">
+          <view class="ep-input ep-picker">{{qForm.grade || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">难度</view>
+        <picker range="{{qDiffs}}" value="{{qDiffIndex}}" bindchange="onQDiff">
+          <view class="ep-input ep-picker">{{qForm.difficulty || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{qForm.tag}}" data-f="tag" bindinput="onQInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeQEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveQEditor">保存</view>
+    </view>
+  </view>
+
+  <!-- 编辑弹层（错题） -->
+  <view class="mask" wx:if="{{mEditorVisible}}" bindtap="closeMEditor"></view>
+  <view class="editor-panel {{mEditorVisible ? 'editor-up' : ''}}">
+    <view class="ep-title">编辑错题</view>
+    <scroll-view scroll-y class="ep-body">
+      <view class="ep-row">
+        <view class="ep-label">题干</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.stem}}" data-f="stem" bindinput="onEditInput" placeholder="题目内容" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">错因</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.reason}}" data-f="reason" bindinput="onEditInput" placeholder="错因定位" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">答案/解析</view>
+        <textarea class="ep-input ep-area" value="{{editorForm.answer}}" data-f="answer" bindinput="onEditInput" placeholder="正确答案与解析" auto-height maxlength="-1"></textarea>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">科目</view>
+        <picker range="{{editSubjects}}" value="{{editSubjectIndex}}" bindchange="onEditSubject">
+          <view class="ep-input ep-picker">{{editorForm.subject || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="ep-row">
+        <view class="ep-label">标签</view>
+        <input class="ep-input" value="{{editorForm.tag}}" data-f="tag" bindinput="onEditInput" placeholder="如：函数 / 几何" />
+      </view>
+    </scroll-view>
+    <view class="ep-btns">
+      <view class="ep-btn ep-cancel" bindtap="closeMEditor">取消</view>
+      <view class="ep-btn ep-save" bindtap="saveMEditor">保存</view>
+    </view>
+  </view>
+</view>
