@@ -124,3 +124,11 @@
 .agree-link {
   color: #3B6EA5;
 }
+
+/* 先逛逛 */
+.browse-link {
+  margin-top: 36rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #A69C89;
+}

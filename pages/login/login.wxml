@@ -30,5 +30,8 @@
         <text class="agree-link" catchtap="showPrivacy">《隐私政策》</text>
       </view>
     </view>
+
+    <!-- 先逛逛：不登录也能浏览（微信规范：不得强制登录） -->
+    <view class="browse-link" bindtap="browseAsGuest">先逛逛，稍后再登录 ›</view>
   </view>
 </view>

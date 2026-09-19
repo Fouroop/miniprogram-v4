@@ -43,6 +43,11 @@ Page({
     }
   },
 
+  // 先逛逛：不登录也能进入浏览（微信规范：不得强制登录）
+  browseAsGuest() {
+    wx.reLaunch({ url: '/pages/home/home' });
+  },
+
   _afterAuth(data) {
     app.saveAuth(data.token, data.user || data);
     wx.showToast({ title: '登录成功', icon: 'success' });
